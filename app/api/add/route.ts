@@ -4,6 +4,7 @@ import { appendRow, appendShiftRow } from '@/lib/sheets';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log('📥 /api/add body:', JSON.stringify(body));
     const { kind } = body;
 
     if (kind === 'operation') {
