@@ -68,7 +68,10 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 .nav-scroll { display: flex; gap: 4px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .nav-scroll::-webkit-scrollbar { display: none; }
 
+.nav-label { display: inline; }
+
 @media (max-width: 640px) {
+  .nav-label { display: none; }
   .page-wrap  { padding: 12px; }
   .grid-4     { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .grid-3     { grid-template-columns: 1fr; gap: 10px; }

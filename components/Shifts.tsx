@@ -86,7 +86,7 @@ export default function Shifts() {
             {months.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
           </select>
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 480 }}>
           <thead>
             <tr>
               <th style={th()}>Дата</th>
@@ -112,7 +112,7 @@ export default function Shifts() {
               <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: C.sub }}>Нет данных за этот период</td></tr>
             )}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

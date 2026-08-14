@@ -3,11 +3,11 @@
 export type Section = 'dashboard' | 'add' | 'shifts' | 'salary' | 'debts';
 
 const items = [
-  { id: 'dashboard' as Section, label: '🏠 Дашборд' },
-  { id: 'add'       as Section, label: '➕ Записать' },
-  { id: 'shifts'    as Section, label: '📅 Смены' },
-  { id: 'salary'    as Section, label: '📊 Зарплата' },
-  { id: 'debts'     as Section, label: '💳 Долги' },
+  { id: 'dashboard' as Section, emoji: '🏠', text: 'Дашборд' },
+  { id: 'add'       as Section, emoji: '➕', text: 'Записать' },
+  { id: 'shifts'    as Section, emoji: '📅', text: 'Смены' },
+  { id: 'salary'    as Section, emoji: '📊', text: 'Зарплата' },
+  { id: 'debts'     as Section, emoji: '💳', text: 'Долги' },
 ];
 
 interface Props { active: Section; onChange: (s: Section) => void; }
@@ -30,7 +30,7 @@ export default function Navigation({ active, onChange }: Props) {
             background: active === item.id ? 'var(--accent)' : 'transparent',
             color: active === item.id ? '#fff' : 'var(--sub)',
           }}>
-            {item.label}
+            {item.emoji} <span className="nav-label">{item.text}</span>
           </button>
         ))}
       </div>
