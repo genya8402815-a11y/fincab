@@ -48,14 +48,14 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+      <div className="grid-4">
         <KPI color={C.green}  icon="💵" label="Остаток на счёте"  value={fmt(dash.balance)} />
         <KPI color={C.blue}   icon="📊" label="Зарплата (расчёт)" value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
         <KPI color={C.red}    icon="💳" label="Общий долг"        value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
         <KPI color={C.yellow} icon="🎯" label="Накопления"        value={fmt(dash.savings)} sub={`${goals.length} целей`} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
+      <div className="grid-2-1">
         <div style={card}>
           <div style={cardTitle}>📈 Трекер темпа · {dash.month} {dash.year}</div>
           {dash.pace?.length > 0 ? dash.pace.map((r, i) => (
@@ -85,7 +85,7 @@ export default function Dashboard() {
       {goals.length > 0 && (
         <div style={card}>
           <div style={cardTitle}>🎯 Цели — прогресс</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 32px' }}>
+          <div className="grid-goals">
             {goals.map((g, i) => {
               const pct = Math.min(parseFloat(g.percent) || 0, 100);
               const c = GOAL_COLORS[i % GOAL_COLORS.length];

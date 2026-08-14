@@ -99,14 +99,14 @@ export default function Salary() {
         <span style={{ color: C.sub, fontSize: 13 }}>— {monthLabel}, {filtered.length} смен</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+      <div className="grid-4">
         <KPI color={C.blue}   icon="📱" label="Телефоны"   value={`${totalPhones} шт`} sub={`за ${filtered.length} смен`} />
         <KPI color={C.yellow} icon="🎧" label="Аксессуары" value={money(totalAcc)} />
         <KPI color={C.green}  icon="💻" label="Техника ВП" value={money(totalTech)} />
         <KPI color={C.orange} icon="🛠" label="Услуги"     value={money(totalSvc)} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid-2">
         {/* Смены (из API — всегда текущий месяц) */}
         <div style={card}>
           <div style={cardTitle}>📅 Смены (текущий месяц)</div>

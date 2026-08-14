@@ -68,7 +68,7 @@ export default function AddRecord() {
   });
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+    <div className="grid-2">
 
       <div style={card}>
         <div style={cardTitle}>💰 Записать операцию</div>

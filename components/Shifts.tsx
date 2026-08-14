@@ -69,7 +69,7 @@ export default function Shifts() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="grid-2">
         <KPI color={C.green} icon="📅" label="Отработано смен" value={filtered.length} />
         <KPI color={C.blue}  icon="💵" label="Итого ЗП"        value={totalSal.toLocaleString('ru-RU') + ' ₽'} />
       </div>

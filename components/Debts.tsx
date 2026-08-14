@@ -47,7 +47,7 @@ export default function Debts() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+      <div className="grid-3">
         <KPI color={C.red}   icon="💳" label="Осталось выплатить" value={`${totalDebt.toLocaleString('ru-RU')} ₽`} />
         <KPI color={C.green} icon="✅" label="Уже выплачено"      value={`${totalPaid.toLocaleString('ru-RU')} ₽`} />
         <KPI color={C.blue}  icon="📊" label="Общий прогресс"     value={`${overallPct.toFixed(0)}%`} sub={`из ${totalInit.toLocaleString('ru-RU')} ₽`} />
@@ -55,7 +55,7 @@ export default function Debts() {
 
       <div style={card}>
         <div style={cardTitle}>💳 Все долги</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 480 }}>
           <thead>
             <tr>
               <th style={th()}>Название</th>
@@ -93,7 +93,7 @@ export default function Debts() {
               );
             })}
           </tbody>
-        </table>
+        </table></div>
       </div>
     </div>
   );

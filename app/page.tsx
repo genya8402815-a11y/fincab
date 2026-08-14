@@ -13,7 +13,7 @@ export default function Home() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navigation active={active} onChange={setActive} />
-      <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+      <div className="page-wrap">
         {active === 'dashboard' && <Dashboard />}
         {active === 'add'       && <AddRecord />}
         {active === 'shifts'    && <Shifts />}
