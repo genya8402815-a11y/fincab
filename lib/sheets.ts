@@ -46,6 +46,59 @@ export async function appendRow(range: string, values: string[]): Promise<void> 
 }
 
 /**
+ * Добавляет строку в Журнал операций (B:G) и копирует формулы месяца/года (H:I)
+ * из предыдущей строки в новую.
+ */
+export async function appendOperationRow(values: string[]): Promise<void> {
+  const sheets = await getSheets();
+  const sheetName = '💰 Журнал операций';
+
+  // 1. Находим последнюю заполненную строку в колонке B (начиная с 5)
+  const colRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!B:B`,
+  });
+  const rows = colRes.data.values ?? [];
+  let lastDataRow = 4; // 0-indexed; row 5 = index 4
+  for (let i = 4; i < rows.length; i++) {
+    if (rows[i]?.[0]) lastDataRow = i;
+  }
+  const lastSheetRow = lastDataRow + 1; // 1-indexed
+  const newSheetRow  = lastSheetRow + 1;
+
+  // 2. Читаем формулы из H:I последней строки
+  const formulaRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!H${lastSheetRow}:I${lastSheetRow}`,
+    valueRenderOption: 'FORMULA',
+  } as Parameters<typeof sheets.spreadsheets.values.get>[0]);
+  const formulaRow = formulaRes.data.values?.[0] ?? [];
+
+  // 3. Записываем данные (B:G) в новую строку
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!B${newSheetRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [values] },
+  });
+
+  // 4. Адаптируем формулы к новой строке и записываем H:I
+  if (formulaRow.length > 0) {
+    const adaptedFormulas = formulaRow.map((f: string) =>
+      typeof f === 'string' && f.startsWith('=')
+        ? f.replace(new RegExp(`${lastSheetRow}`, 'g'), String(newSheetRow))
+        : f
+    );
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!H${newSheetRow}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [adaptedFormulas] },
+    });
+  }
+}
+
+/**
  * Добавляет строку со значениями (B:F), затем копирует формулы из предыдущей строки
  * для колонок G и далее (ЗП, месяц, год и т.д.)
  */

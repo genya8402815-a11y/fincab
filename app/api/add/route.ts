@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { appendRow, appendShiftRow } from '@/lib/sheets';
+import { appendOperationRow, appendShiftRow } from '@/lib/sheets';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       if (!date || !type || !amount) {
         return NextResponse.json({ error: 'Заполните обязательные поля' }, { status: 400 });
       }
-      await appendRow('💰 Журнал операций!B5:G5', [
+      await appendOperationRow([
         date, type, amount, category ?? '', target ?? '', description ?? '',
       ]);
       return NextResponse.json({ ok: true });
