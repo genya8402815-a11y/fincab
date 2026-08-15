@@ -71,8 +71,9 @@ export async function appendOperationRow(values: string[]): Promise<void> {
     spreadsheetId: SPREADSHEET_ID,
     range: `${sheetName}!H${lastSheetRow}:I${lastSheetRow}`,
     valueRenderOption: 'FORMULA',
-  } as Parameters<typeof sheets.spreadsheets.values.get>[0]);
-  const formulaRow = formulaRes.data.values?.[0] ?? [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
+  const formulaRow = (formulaRes as any).data.values?.[0] ?? [];
 
   // 3. Записываем данные (B:G) в новую строку
   await sheets.spreadsheets.values.update({
