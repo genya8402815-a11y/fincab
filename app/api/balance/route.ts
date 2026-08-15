@@ -4,10 +4,9 @@ import { readRange } from '@/lib/sheets';
 export async function GET() {
   try {
     const header = await readRange('🏠 Дашборд!B2:K4');
-    const balance  = header[2]?.[0] ?? '0';
-    const savings  = header[2]?.[9] ?? '0';
-    const debt     = header[2]?.[6] ?? '0';
-    return new NextResponse(balance, {
+    const balance = header[2]?.[0] ?? '0';
+    return new Response(balance, {
+      status: 200,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
   } catch (e) {
