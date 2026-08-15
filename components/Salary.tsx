@@ -155,7 +155,7 @@ export default function Salary() {
       {sal.pace?.length > 0 && (
         <div style={card}>
           <div style={cardTitle}>📈 Трекер темпа (текущий месяц)</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div className="table-scroll"><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 420 }}>
             <tbody>
               {sal.pace.map((r, i) => (
                 <tr key={i}>
@@ -166,7 +166,7 @@ export default function Salary() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </div>
       )}
     </div>
