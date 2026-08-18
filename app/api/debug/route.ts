@@ -3,9 +3,9 @@ import { readRange } from '@/lib/sheets';
 
 export async function GET() {
   try {
-    const dash = await readRange('🏠 Дашборд!B2:K30');
-    const nastroyki = await readRange('⚙️ Настройки!B1:G60');
-    return NextResponse.json({ dash, nastroyki });
+    const dolgi = await readRange('💳 Долги!B1:H30');
+    const regulyarye = await readRange('🏠 Регулярные!B1:H30');
+    return NextResponse.json({ dolgi, regulyarye });
   } catch (e: unknown) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
