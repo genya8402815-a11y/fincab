@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = [
+  '/login',
+  '/api/auth/login',
   '/_next/',
   '/favicon.ico',
   '/manifest.json',
@@ -10,34 +12,21 @@ const PUBLIC_PATHS = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Пропускаем статику и служебные файлы без проверки
+  // Пропускаем публичные пути без проверки
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  const authHeader = request.headers.get('authorization');
+  const authCookie = request.cookies.get('fincab_auth');
+  const validPassword = process.env.BASIC_AUTH_PASSWORD;
 
-  if (authHeader?.startsWith('Basic ')) {
-    const base64 = authHeader.slice(6);
-    const decoded = Buffer.from(base64, 'base64').toString('utf-8');
-    const colonIndex = decoded.indexOf(':');
-    const username = decoded.slice(0, colonIndex);
-    const password = decoded.slice(colonIndex + 1);
-
-    const validUser = process.env.BASIC_AUTH_USER;
-    const validPass = process.env.BASIC_AUTH_PASSWORD;
-
-    if (validUser && validPass && username === validUser && password === validPass) {
-      return NextResponse.next();
-    }
+  if (authCookie?.value && validPassword && authCookie.value === validPassword) {
+    return NextResponse.next();
   }
 
-  return new NextResponse('Unauthorized', {
-    status: 401,
-    headers: {
-      'WWW-Authenticate': 'Basic realm="FinCab"',
-    },
-  });
+  // Не авторизован — редирект на страницу входа
+  const loginUrl = new URL('/login', request.url);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
