@@ -5,6 +5,7 @@ import Navigation, { type Section } from '@/components/Navigation';
 import Dashboard from '@/components/Dashboard';
 import AddRecord  from '@/components/AddRecord';
 import Journal    from '@/components/Journal';
+import Goals      from '@/components/Goals';
 import Shifts     from '@/components/Shifts';
 import Salary     from '@/components/Salary';
 import Debts      from '@/components/Debts';
@@ -22,6 +23,7 @@ export default function Home() {
         {active === 'shifts'    && <Shifts />}
         {active === 'salary'    && <Salary />}
         {active === 'debts'     && <Debts />}
+        {active === 'goals'     && <Goals />}
       </div>
     </div>
   );

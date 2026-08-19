@@ -4,7 +4,7 @@ import { readRange } from '@/lib/sheets';
 export async function GET() {
   try {
     // Цели: B6:F25 (название, накоплено, нужно, осталось, %)
-    const rows = await readRange('🎯 Цели!B6:F25');
+    const rows = await readRange('🎯 Цели!B6:G25');
     const goals = rows
       .filter(r => r[0])
       .map(r => ({
@@ -13,6 +13,7 @@ export async function GET() {
         need:    r[2] ?? '0',
         left:    r[3] ?? '0',
         percent: r[4] ?? '0',
+        date:    r[5] ?? '',
       }));
     return NextResponse.json({ goals });
   } catch (e) {

@@ -1,6 +1,6 @@
 'use client';
 
-export type Section = 'dashboard' | 'add' | 'shifts' | 'salary' | 'debts' | 'journal';
+export type Section = 'dashboard' | 'add' | 'journal' | 'shifts' | 'salary' | 'debts' | 'goals';
 
 const items = [
   { id: 'dashboard' as Section, emoji: '🏠', text: 'Дашборд' },
@@ -9,6 +9,7 @@ const items = [
   { id: 'shifts'    as Section, emoji: '📅', text: 'Смены' },
   { id: 'salary'    as Section, emoji: '📊', text: 'Зарплата' },
   { id: 'debts'     as Section, emoji: '💳', text: 'Долги' },
+  { id: 'goals'     as Section, emoji: '🎯', text: 'Цели' },
 ];
 
 interface Props { active: Section; onChange: (s: Section) => void; }
