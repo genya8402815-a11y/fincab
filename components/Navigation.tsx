@@ -1,10 +1,11 @@
 'use client';
 
-export type Section = 'dashboard' | 'add' | 'shifts' | 'salary' | 'debts';
+export type Section = 'dashboard' | 'add' | 'shifts' | 'salary' | 'debts' | 'journal';
 
 const items = [
   { id: 'dashboard' as Section, emoji: '🏠', text: 'Дашборд' },
   { id: 'add'       as Section, emoji: '➕', text: 'Записать' },
+  { id: 'journal'   as Section, emoji: '📋', text: 'Журнал' },
   { id: 'shifts'    as Section, emoji: '📅', text: 'Смены' },
   { id: 'salary'    as Section, emoji: '📊', text: 'Зарплата' },
   { id: 'debts'     as Section, emoji: '💳', text: 'Долги' },

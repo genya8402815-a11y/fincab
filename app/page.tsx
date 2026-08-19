@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Navigation, { type Section } from '@/components/Navigation';
 import Dashboard from '@/components/Dashboard';
 import AddRecord  from '@/components/AddRecord';
+import Journal    from '@/components/Journal';
 import Shifts     from '@/components/Shifts';
 import Salary     from '@/components/Salary';
 import Debts      from '@/components/Debts';
@@ -17,6 +18,7 @@ export default function Home() {
       <div className="page-wrap">
         {active === 'dashboard' && <><PushSetup /><Dashboard /></>}
         {active === 'add'       && <AddRecord />}
+        {active === 'journal'   && <Journal />}
         {active === 'shifts'    && <Shifts />}
         {active === 'salary'    && <Salary />}
         {active === 'debts'     && <Debts />}
