@@ -4,33 +4,64 @@ import { readRange, writeRange, getSheets } from '@/lib/sheets';
 const SHEET  = '⚙ Категории';
 const SPREAD = process.env.GOOGLE_SPREADSHEET_ID!;
 
-const DEFAULT_EXPENSE = ['Продукты', 'Транспорт', 'Кафе и рестораны', 'Связь', 'Развлечения', 'Подписки', 'Здоровье', 'Покупки', 'Вредные привычки', 'Подарки', 'Прочее'];
-const DEFAULT_INCOME  = ['Зарплата', 'Фриланс', 'Подработка', 'Кешбэк', 'Прочее'];
+// A=расходы, B=доходы, C=долги, D=накопления
+const COLS: Record<CatType, 'A' | 'B' | 'C' | 'D'> = {
+  expense: 'A', income: 'B', debt: 'C', savings: 'D',
+};
 
-async function readCol(col: 'A' | 'B'): Promise<string[]> {
-  const rows = await readRange(`${SHEET}!${col}1:${col}100`);
-  return rows.map(r => String(r[0] ?? '').trim()).filter(Boolean);
+export type CatType = 'expense' | 'income' | 'debt' | 'savings';
+
+const DEFAULTS: Record<CatType, string[]> = {
+  expense:  ['Продукты', 'Транспорт', 'Кафе и рестораны', 'Связь', 'Развлечения', 'Подписки', 'Здоровье', 'Покупки', 'Вредные привычки', 'Подарки', 'Прочее'],
+  income:   ['Зарплата', 'Фриланс', 'Подработка', 'Кешбэк', 'Прочее'],
+  debt:     ['Кредит', 'Ипотека', 'Долг другу', 'Долг родственнику', 'Рассрочка', 'Прочее'],
+  savings:  ['Подушка безопасности', 'Отпуск', 'Крупная покупка', 'Инвестиции', 'Прочее'],
+};
+
+async function readCol(col: string): Promise<string[]> {
+  try {
+    const rows = await readRange(`${SHEET}!${col}1:${col}100`);
+    return rows.map(r => String(r[0] ?? '').trim()).filter(Boolean);
+  } catch { return []; }
 }
 
-async function ensureSheet(): Promise<{ expense: string[]; income: string[] }> {
+type CatsMap = Record<CatType, string[]>;
+
+async function ensureSheet(): Promise<CatsMap> {
   try {
-    const [expense, income] = await Promise.all([readCol('A'), readCol('B')]);
-    return { expense, income };
+    await readRange(`${SHEET}!A1`); // проверяем что лист есть
   } catch {
+    // Создаём лист
     const sheets = await getSheets();
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREAD,
       requestBody: { requests: [{ addSheet: { properties: { title: SHEET } } }] },
     });
-    await writeRange(`${SHEET}!A1:A${DEFAULT_EXPENSE.length}`, DEFAULT_EXPENSE.map(c => [c]));
-    await writeRange(`${SHEET}!B1:B${DEFAULT_INCOME.length}`,  DEFAULT_INCOME.map(c => [c]));
-    return { expense: [...DEFAULT_EXPENSE], income: [...DEFAULT_INCOME] };
+    // Записываем все дефолты
+    for (const [type, col] of Object.entries(COLS) as [CatType, string][]) {
+      const vals = DEFAULTS[type];
+      await writeRange(`${SHEET}!${col}1:${col}${vals.length}`, vals.map(v => [v]));
+    }
   }
+
+  const [expense, income, debt, savings] = await Promise.all([
+    readCol('A'), readCol('B'), readCol('C'), readCol('D'),
+  ]);
+
+  // Если какой-то столбец пустой — заполняем дефолтами
+  const result: CatsMap = { expense, income, debt, savings };
+  for (const type of Object.keys(COLS) as CatType[]) {
+    if (result[type].length === 0) {
+      const vals = DEFAULTS[type];
+      await writeRange(`${SHEET}!${COLS[type]}1:${COLS[type]}${vals.length}`, vals.map(v => [v]));
+      result[type] = [...vals];
+    }
+  }
+  return result;
 }
 
-// Обновляет Data Validation столбца E журнала — объединённый список всех категорий
-async function syncJournalValidation(expense: string[], income: string[]) {
-  const all = [...new Set([...expense, ...income])].filter(Boolean);
+async function syncJournalValidation(cats: CatsMap) {
+  const all = [...new Set([...cats.expense, ...cats.income, ...cats.debt, ...cats.savings])].filter(Boolean);
   if (all.length === 0) return;
 
   const sheets = await getSheets();
@@ -70,21 +101,22 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, type } = await req.json(); // type: 'expense' | 'income'
-    if (!name?.trim()) return NextResponse.json({ error: 'name required' }, { status: 400 });
+    const { name, type }: { name: string; type: CatType } = await req.json();
+    if (!name?.trim() || !type) return NextResponse.json({ error: 'name and type required' }, { status: 400 });
     const trimmed = name.trim();
-    const col = type === 'income' ? 'B' : 'A';
+    const col = COLS[type];
+    if (!col) return NextResponse.json({ error: 'invalid type' }, { status: 400 });
 
     const cats = await ensureSheet();
-    const list = type === 'income' ? cats.income : cats.expense;
+    const list = cats[type];
 
     if (list.some(c => c.toLowerCase() === trimmed.toLowerCase())) {
       return NextResponse.json({ ok: true, action: 'already_exists', ...cats });
     }
 
     await writeRange(`${SHEET}!${col}${list.length + 1}`, [[trimmed]]);
-    const updated = { ...cats, [type === 'income' ? 'income' : 'expense']: [...list, trimmed] };
-    syncJournalValidation(updated.expense, updated.income).catch(e => console.warn('syncValidation:', e));
+    const updated: CatsMap = { ...cats, [type]: [...list, trimmed] };
+    syncJournalValidation(updated).catch(e => console.warn('syncValidation:', e));
 
     return NextResponse.json({ ok: true, ...updated });
   } catch (e) {
@@ -94,17 +126,16 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { name, type } = await req.json();
-    if (!name?.trim()) return NextResponse.json({ error: 'name required' }, { status: 400 });
-    const col = type === 'income' ? 'B' : 'A';
+    const { name, type }: { name: string; type: CatType } = await req.json();
+    if (!name?.trim() || !type) return NextResponse.json({ error: 'name and type required' }, { status: 400 });
+    const col = COLS[type];
 
     const rows = await readRange(`${SHEET}!${col}1:${col}100`);
     for (let i = 0; i < rows.length; i++) {
       if (String(rows[i][0] ?? '').trim().toLowerCase() === name.trim().toLowerCase()) {
         await writeRange(`${SHEET}!${col}${i + 1}`, [['']] );
-        const remaining = rows.map(r => String(r[0] ?? '').trim()).filter((c, idx) => c && idx !== i);
-        const cats = await ensureSheet(); // перечитываем обе колонки
-        syncJournalValidation(cats.expense, cats.income).catch(e => console.warn('syncValidation:', e));
+        const cats = await ensureSheet();
+        syncJournalValidation(cats).catch(e => console.warn('syncValidation:', e));
         return NextResponse.json({ ok: true, ...cats });
       }
     }
@@ -114,11 +145,10 @@ export async function DELETE(req: NextRequest) {
   }
 }
 
-// PUT — принудительная синхронизация дропдауна в Sheets
 export async function PUT() {
   try {
     const cats = await ensureSheet();
-    await syncJournalValidation(cats.expense, cats.income);
+    await syncJournalValidation(cats);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
