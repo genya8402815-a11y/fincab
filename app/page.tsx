@@ -8,7 +8,6 @@ import Journal    from '@/components/Journal';
 import Goals      from '@/components/Goals';
 import Analytics  from '@/components/Analytics';
 import Shifts     from '@/components/Shifts';
-import Salary     from '@/components/Salary';
 import Debts      from '@/components/Debts';
 import PushSetup  from '@/components/PushSetup';
 
@@ -22,7 +21,6 @@ export default function Home() {
         {active === 'add'       && <AddRecord />}
         {active === 'journal'   && <Journal />}
         {active === 'shifts'    && <Shifts />}
-        {active === 'salary'    && <Salary />}
         {active === 'debts'     && <Debts />}
         {active === 'goals'     && <Goals />}
         {active === 'analytics' && <Analytics />}
