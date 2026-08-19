@@ -1,15 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; }
-interface Goal { name: string; saved: string; need: string; left: string; percent: string; }
-interface Debt { name: string; initial: string; paid: string; left: string; }
+interface Goal     { name: string; saved: string; need: string; left: string; percent: string; }
+interface Debt     { name: string; initial: string; paid: string; left: string; }
+interface Regular  { rowIndex: number; name: string; amount: string; paid: boolean; }
 
 function n(v?: string) { return parseFloat(String(v ?? '0').replace(/\s/g, '').replace(',', '.').replace('₽','')) || 0; }
-function fmt(v?: string) { return n(v).toLocaleString('ru-RU') + ' ₽'; }
+function fmt(v?: string | number) {
+  const num = typeof v === 'number' ? v : n(String(v));
+  return num.toLocaleString('ru-RU') + ' ₽';
+}
 
-const C = { green: '#4ade80', blue: '#6c8ef7', red: '#f87171', yellow: '#fbbf24', orange: '#fb923c', purple: '#a78bfa', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27', surface2: '#222535' };
+const C = {
+  green: '#4ade80', blue: '#6c8ef7', red: '#f87171', yellow: '#fbbf24',
+  orange: '#fb923c', purple: '#a78bfa', sub: '#8892a4', border: '#2d3148',
+  surface: '#1a1d27', surface2: '#222535',
+};
 
 function KPI({ color, icon, label, value, sub }: { color: string; icon: string; label: string; value: string; sub?: string }) {
   return (
@@ -24,30 +32,58 @@ function KPI({ color, icon, label, value, sub }: { color: string; icon: string; 
 }
 
 export default function Dashboard() {
-  const [dash,  setDash]  = useState<DashData | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dash,     setDash]     = useState<DashData | null>(null);
+  const [goals,    setGoals]    = useState<Goal[]>([]);
+  const [debts,    setDebts]    = useState<Debt[]>([]);
+  const [regulars, setRegulars] = useState<Regular[]>([]);
+  const [unpaidAmt, setUnpaidAmt] = useState(0);
+  const [loading,  setLoading]  = useState(true);
+  const [toggling, setToggling] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
       fetch('/api/dashboard').then(r => r.json()),
       fetch('/api/goals').then(r => r.json()),
       fetch('/api/debts').then(r => r.json()),
-    ]).then(([d, g, db]) => { setDash(d); setGoals(g.goals ?? []); setDebts(db.debts ?? []); setLoading(false); })
-    .catch(() => setLoading(false));
+      fetch('/api/regulars').then(r => r.json()),
+    ]).then(([d, g, db, reg]) => {
+      setDash(d);
+      setGoals(g.goals ?? []);
+      setDebts(db.debts ?? []);
+      setRegulars(reg.items ?? []);
+      setUnpaidAmt(reg.unpaidAmt ?? 0);
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, []);
+
+  const togglePaid = useCallback(async (rowIndex: number) => {
+    setToggling(rowIndex);
+    try {
+      const res = await fetch(`/api/regulars/${rowIndex}`, { method: 'PATCH' });
+      const data = await res.json();
+      setRegulars(prev => prev.map(r => r.rowIndex === rowIndex ? { ...r, paid: data.paid } : r));
+      setUnpaidAmt(prev => {
+        const reg = regulars.find(r => r.rowIndex === rowIndex);
+        if (!reg) return prev;
+        return data.paid ? prev - n(reg.amount) : prev + n(reg.amount);
+      });
+    } catch { /* silent */ }
+    finally { setToggling(null); }
+  }, [regulars]);
 
   if (loading || !dash) return <div style={{ color: C.sub, padding: 60, textAlign: 'center' }}>Загрузка…</div>;
 
   const GOAL_COLORS = [C.green, C.blue, C.yellow, C.orange, C.purple];
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
   const cardTitle = { fontSize: 12, fontWeight: 600 as const, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: '.5px', marginBottom: 16 };
-  const row = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${C.border}`, fontSize: 13 };
+  const row  = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${C.border}`, fontSize: 13 };
+
+  const unpaidCount = regulars.filter(r => !r.paid).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
+      {/* KPI */}
       <div className="grid-4">
         <KPI color={C.green}  icon="💵" label="Остаток на счёте"  value={fmt(dash.balance)} />
         <KPI color={C.blue}   icon="📊" label="Зарплата (расчёт)" value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
@@ -55,7 +91,9 @@ export default function Dashboard() {
         <KPI color={C.yellow} icon="🎯" label="Накопления"        value={fmt(dash.savings)} sub={`${goals.length} целей`} />
       </div>
 
+      {/* Трекер + Долги + Регулярные */}
       <div className="grid-2-1">
+        {/* Трекер темпа */}
         <div style={card}>
           <div style={cardTitle}>📈 Трекер темпа · {dash.month} {dash.year}</div>
           {dash.pace?.length > 0 ? dash.pace.map((r, i) => (
@@ -69,19 +107,77 @@ export default function Dashboard() {
           )) : <span style={{ color: C.sub, fontSize: 13 }}>Нет данных</span>}
         </div>
 
-        <div style={card}>
-          <div style={cardTitle}>💳 Долги — остаток</div>
-          {debts.map((d, i) => (
-            <div key={i} style={{ ...row, ...(i === debts.length - 1 ? { borderBottom: 'none' } : {}) }}>
-              <span style={{ fontSize: 13 }}>{d.name}</span>
-              <span style={{ color: n(d.left) === 0 ? C.green : C.red, fontWeight: 600, fontSize: 13 }}>
-                {n(d.left) === 0 ? '0 ₽ ✅' : fmt(d.left)}
-              </span>
+        {/* Правая колонка: Долги + Регулярные */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Долги */}
+          <div style={card}>
+            <div style={cardTitle}>💳 Долги — остаток</div>
+            {debts.length === 0
+              ? <span style={{ color: C.sub, fontSize: 13 }}>Нет долгов</span>
+              : debts.map((d, i) => (
+                <div key={i} style={{ ...row, ...(i === debts.length - 1 ? { borderBottom: 'none' } : {}) }}>
+                  <span style={{ fontSize: 13 }}>{d.name}</span>
+                  <span style={{ color: n(d.left) === 0 ? C.green : C.red, fontWeight: 600, fontSize: 13 }}>
+                    {n(d.left) === 0 ? '0 ₽ ✅' : fmt(d.left)}
+                  </span>
+                </div>
+              ))
+            }
+          </div>
+
+          {/* Регулярные платежи */}
+          {regulars.length > 0 && (
+            <div style={card}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={cardTitle}>🔁 Регулярные платежи</div>
+                {unpaidCount > 0 && (
+                  <span style={{ fontSize: 12, color: C.red, fontWeight: 600, background: '#7f1d1d22', padding: '3px 8px', borderRadius: 6 }}>
+                    -{fmt(unpaidAmt)}
+                  </span>
+                )}
+              </div>
+              {regulars.map((reg, i) => {
+                const isLast = i === regulars.length - 1;
+                const isToggling = toggling === reg.rowIndex;
+                return (
+                  <div key={reg.rowIndex} style={{ ...row, ...(isLast ? { borderBottom: 'none' } : {}), opacity: isToggling ? .5 : 1 }}>
+                    <span style={{ fontSize: 13, color: reg.paid ? C.sub : '#e2e8f0', textDecoration: reg.paid ? 'line-through' : 'none' }}>
+                      {reg.name}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: reg.paid ? C.sub : C.red }}>
+                        {fmt(reg.amount)}
+                      </span>
+                      <button
+                        onClick={() => !isToggling && togglePaid(reg.rowIndex)}
+                        title={reg.paid ? 'Отметить как неоплаченное' : 'Отметить как оплаченное'}
+                        style={{
+                          width: 22, height: 22, borderRadius: 5, cursor: 'pointer',
+                          border: `2px solid ${reg.paid ? C.green : C.border}`,
+                          background: reg.paid ? C.green : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, flexShrink: 0,
+                          transition: 'all .15s',
+                        }}
+                      >
+                        {reg.paid ? '✓' : ''}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {unpaidCount === 0 && (
+                <div style={{ fontSize: 12, color: C.green, textAlign: 'center', paddingTop: 8 }}>
+                  ✅ Все оплачено в этом месяце
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
       </div>
 
+      {/* Цели */}
       {goals.length > 0 && (
         <div style={card}>
           <div style={cardTitle}>🎯 Цели — прогресс</div>

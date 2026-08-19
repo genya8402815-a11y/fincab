@@ -24,6 +24,16 @@ export async function readRange(range: string): Promise<string[][]> {
   return (res.data.values as string[][]) ?? [];
 }
 
+export async function writeRangeRaw(range: string, values: unknown[][]): Promise<void> {
+  const sheets = await getSheets();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+}
+
 export async function writeRange(range: string, values: string[][]): Promise<void> {
   const sheets = await getSheets();
   await sheets.spreadsheets.values.update({
