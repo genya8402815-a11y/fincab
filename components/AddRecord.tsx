@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
+import Toast from '@/components/Toast';
 
 const C = { blue: '#6c8ef7', green: '#4ade80', red: '#f87171', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27', surface2: '#222535', text: '#e2e8f0' };
 
@@ -20,10 +21,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function AddRecord() {
-  const [opStatus, setOpStatus] = useState('');
-  const [shStatus, setShStatus] = useState('');
+  const [toast,    setToast]   = useState<{ message: string; type: 'success' | 'error' | '' }>({ message: '', type: '' });
   const [opSaving, setOpSaving] = useState(false);
   const [shSaving, setShSaving] = useState(false);
+
+  const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
+  const hideToast = useCallback(() => setToast({ message: '', type: '' }), []);
 
   const [opDate, setOpDate] = useState(todayIso());
   const [opType, setOpType] = useState(TYPES[0]);
@@ -43,9 +46,9 @@ export default function AddRecord() {
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'operation', date: toRuDate(opDate), type: opType.replace(/^[^\s]+ /, ''), amount: opAmt, category: opCat, description: opDesc }) });
       const data = await res.json();
-      if (data.ok) { setOpStatus('✅ Операция записана!'); setOpAmt(''); setOpDesc(''); }
-      else setOpStatus('❌ ' + (data.error ?? 'Ошибка'));
-    } catch { setOpStatus('❌ Ошибка сети'); }
+      if (data.ok) { showToast('Операция записана!', 'success'); setOpAmt(''); setOpDesc(''); }
+      else showToast(data.error ?? 'Ошибка', 'error');
+    } catch { showToast('Ошибка сети', 'error'); }
     setOpSaving(false);
   }
 
@@ -55,9 +58,9 @@ export default function AddRecord() {
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'shift', date: toRuDate(shDate), phones: shPhone, accessories: shAcc, tech: shTech, services: shSvc }) });
       const data = await res.json();
-      if (data.ok) { setShStatus('✅ Смена записана!'); setShPhone(''); setShAcc(''); setShTech(''); setShSvc(''); }
-      else setShStatus('❌ ' + (data.error ?? 'Ошибка'));
-    } catch { setShStatus('❌ Ошибка сети'); }
+      if (data.ok) { showToast('Смена записана!', 'success'); setShPhone(''); setShAcc(''); setShTech(''); setShSvc(''); }
+      else showToast(data.error ?? 'Ошибка', 'error');
+    } catch { showToast('Ошибка сети', 'error'); }
     setShSaving(false);
   }
 
@@ -68,6 +71,8 @@ export default function AddRecord() {
   });
 
   return (
+    <>
+    <Toast message={toast.message} type={toast.type} onHide={hideToast} />
     <div className="grid-2">
 
       <div style={card}>
@@ -95,7 +100,6 @@ export default function AddRecord() {
             </Field>
           </div>
         </div>
-        {opStatus && <p style={{ marginTop: 12, fontSize: 14, color: opStatus.startsWith('✅') ? C.green : C.red }}>{opStatus}</p>}
         <button onClick={saveOp} disabled={opSaving} style={btnStyle(opSaving)}>
           💾 {opSaving ? 'Сохраняю…' : 'Сохранить'}
         </button>
@@ -123,12 +127,12 @@ export default function AddRecord() {
           </Field>
         </div>
         <p style={{ marginTop: 12, fontSize: 12, color: C.sub }}>💡 ЗП рассчитывается автоматически по формуле в таблице</p>
-        {shStatus && <p style={{ marginTop: 8, fontSize: 14, color: shStatus.startsWith('✅') ? C.green : C.red }}>{shStatus}</p>}
         <button onClick={saveShift} disabled={shSaving} style={btnStyle(shSaving)}>
           💾 {shSaving ? 'Сохраняю…' : 'Сохранить смену'}
         </button>
       </div>
 
     </div>
+    </>
   );
 }
