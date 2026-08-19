@@ -4,7 +4,7 @@ import { readRange } from '@/lib/sheets';
 export async function GET() {
   try {
     // Журнал: строки с 5, B(дата) C(тип) D(сумма) E(категория) F(цель/долг) G(описание)
-    const rows = await readRange('💰 Журнал операций!B5:G200');
+    const rows = await readRange('💰 Журнал операций!B5:G2000');
     const entries = rows
       .filter(r => r[0])
       .map(r => ({
