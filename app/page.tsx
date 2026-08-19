@@ -7,6 +7,7 @@ import AddRecord  from '@/components/AddRecord';
 import Journal    from '@/components/Journal';
 import Goals      from '@/components/Goals';
 import Analytics  from '@/components/Analytics';
+import Budget     from '@/components/Budget';
 import Shifts     from '@/components/Shifts';
 import Debts      from '@/components/Debts';
 import PushSetup  from '@/components/PushSetup';
@@ -24,6 +25,7 @@ export default function Home() {
         {active === 'debts'     && <Debts />}
         {active === 'goals'     && <Goals />}
         {active === 'analytics' && <Analytics />}
+        {active === 'budget'    && <Budget />}
       </div>
     </div>
   );
