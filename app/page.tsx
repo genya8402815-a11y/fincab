@@ -6,6 +6,7 @@ import Dashboard from '@/components/Dashboard';
 import AddRecord  from '@/components/AddRecord';
 import Journal    from '@/components/Journal';
 import Goals      from '@/components/Goals';
+import Analytics  from '@/components/Analytics';
 import Shifts     from '@/components/Shifts';
 import Salary     from '@/components/Salary';
 import Debts      from '@/components/Debts';
@@ -24,6 +25,7 @@ export default function Home() {
         {active === 'salary'    && <Salary />}
         {active === 'debts'     && <Debts />}
         {active === 'goals'     && <Goals />}
+        {active === 'analytics' && <Analytics />}
       </div>
     </div>
   );
