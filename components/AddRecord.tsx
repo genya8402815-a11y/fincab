@@ -6,7 +6,10 @@ import Toast from '@/components/Toast';
 const C = { blue: '#6c8ef7', green: '#4ade80', red: '#f87171', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27', surface2: '#222535', text: '#e2e8f0' };
 
 function toRuDate(iso: string) { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; }
-function todayIso() { return new Date().toISOString().slice(0, 10); }
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 const TYPES = ['🛒 Расход', '💵 Доход', '🏦 В накопления', '↩️ Из накоплений', '💳 Платёж по долгу'];
 
