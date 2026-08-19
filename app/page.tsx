@@ -10,13 +10,15 @@ import Analytics  from '@/components/Analytics';
 import Budget     from '@/components/Budget';
 import Shifts     from '@/components/Shifts';
 import Debts      from '@/components/Debts';
-import PushSetup  from '@/components/PushSetup';
+import PushSetup     from '@/components/PushSetup';
+import OfflineBanner from '@/components/OfflineBanner';
 
 export default function Home() {
   const [active, setActive] = useState<Section>('dashboard');
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navigation active={active} onChange={setActive} />
+      <OfflineBanner />
       <div className="page-wrap">
         {active === 'dashboard' && <><PushSetup /><Dashboard /></>}
         {active === 'add'       && <AddRecord />}
