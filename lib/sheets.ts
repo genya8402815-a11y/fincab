@@ -45,6 +45,34 @@ export async function appendRow(range: string, values: string[]): Promise<void> 
   });
 }
 
+export async function updateJournalRow(rowNumber: number, values: string[]): Promise<void> {
+  await writeRange(`💰 Журнал операций!B${rowNumber}:G${rowNumber}`, [values]);
+}
+
+export async function deleteJournalRow(rowNumber: number): Promise<void> {
+  const sheets = await getSheets();
+  // Получаем числовой sheetId по имени листа
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheet = meta.data.sheets?.find(s => s.properties?.title === '💰 Журнал операций');
+  const sheetId = sheet?.properties?.sheetId;
+  if (sheetId === undefined) throw new Error('Sheet not found');
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: rowNumber - 1, // 0-indexed
+            endIndex: rowNumber,       // exclusive
+          }
+        }
+      }]
+    }
+  });
+}
+
 /**
  * Добавляет строку в Журнал операций (B:G) и копирует формулы месяца/года (H:I)
  * из предыдущей строки в новую.
