@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_PATHS = [
   '/login',
-  '/api/auth/login',
+  '/api/',       // API маршруты доступны для iOS Shortcuts и Vercel Cron
   '/_next/',
   '/favicon.ico',
   '/manifest.json',

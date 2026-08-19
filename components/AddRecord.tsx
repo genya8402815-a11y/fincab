@@ -41,7 +41,7 @@ export default function AddRecord() {
   const [shSvc,   setShSvc]   = useState('');
 
   async function saveOp() {
-    setOpSaving(true); setOpStatus('');
+    setOpSaving(true);
     try {
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'operation', date: toRuDate(opDate), type: opType.replace(/^[^\s]+ /, ''), amount: opAmt, category: opCat, description: opDesc }) });
@@ -53,7 +53,7 @@ export default function AddRecord() {
   }
 
   async function saveShift() {
-    setShSaving(true); setShStatus('');
+    setShSaving(true);
     try {
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ kind: 'shift', date: toRuDate(shDate), phones: shPhone, accessories: shAcc, tech: shTech, services: shSvc }) });
