@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback } from 'react';
 interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; }
 interface Goal     { name: string; saved: string; need: string; left: string; percent: string; }
 interface Debt     { name: string; initial: string; paid: string; left: string; }
-interface Regular  { rowIndex: number; name: string; amount: string; paid: boolean; }
+interface Regular  { rowIndex: number; name: string; day: string; amount: string; category: string; paid: boolean; }
 
 function n(v?: string) { return parseFloat(String(v ?? '0').replace(/\s/g, '').replace(',', '.').replace('₽','')) || 0; }
 function fmt(v?: string | number) {
@@ -142,9 +142,12 @@ export default function Dashboard() {
                 const isToggling = toggling === reg.rowIndex;
                 return (
                   <div key={reg.rowIndex} style={{ ...row, ...(isLast ? { borderBottom: 'none' } : {}), opacity: isToggling ? .5 : 1 }}>
-                    <span style={{ fontSize: 13, color: reg.paid ? C.sub : '#e2e8f0', textDecoration: reg.paid ? 'line-through' : 'none' }}>
-                      {reg.name}
-                    </span>
+                    <div>
+                      <span style={{ fontSize: 13, color: reg.paid ? C.sub : '#e2e8f0', textDecoration: reg.paid ? 'line-through' : 'none' }}>
+                        {reg.name}
+                      </span>
+                      {reg.day && <span style={{ fontSize: 11, color: C.sub, marginLeft: 6 }}>{reg.day}-го</span>}
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: reg.paid ? C.sub : C.red }}>
                         {fmt(reg.amount)}

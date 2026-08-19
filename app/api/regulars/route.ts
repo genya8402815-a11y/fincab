@@ -15,7 +15,9 @@ export async function GET() {
       .map((r, i) => ({
         rowIndex: 6 + i,          // реальный номер строки в таблице
         name:     r[0] ?? '',
-        amount:   r[1] ?? '0',
+        day:      r[1] ?? '',     // C = день месяца
+        amount:   r[2] ?? '0',   // D = сумма ₽
+        category: r[3] ?? '',    // E = категория
         paid:     String(r[4] ?? '').toUpperCase() === 'TRUE',
       }))
       .filter(item => item.name);
