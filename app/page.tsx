@@ -7,6 +7,7 @@ import AddRecord  from '@/components/AddRecord';
 import Shifts     from '@/components/Shifts';
 import Salary     from '@/components/Salary';
 import Debts      from '@/components/Debts';
+import PushSetup  from '@/components/PushSetup';
 
 export default function Home() {
   const [active, setActive] = useState<Section>('dashboard');
@@ -14,7 +15,7 @@ export default function Home() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navigation active={active} onChange={setActive} />
       <div className="page-wrap">
-        {active === 'dashboard' && <Dashboard />}
+        {active === 'dashboard' && <><PushSetup /><Dashboard /></>}
         {active === 'add'       && <AddRecord />}
         {active === 'shifts'    && <Shifts />}
         {active === 'salary'    && <Salary />}
