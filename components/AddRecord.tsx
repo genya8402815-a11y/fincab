@@ -103,6 +103,17 @@ export default function AddRecord() {
     setCatSaving(false);
   }
 
+  async function syncValidation() {
+    setSaving(true);
+    try {
+      await fetch('/api/categories', { method: 'PUT' });
+      showToast('Дропдаун в таблице обновлён ✓', 'success');
+    } catch { showToast('Ошибка синхронизации', 'error'); }
+    setSaving(false);
+  }
+
+  const [saving, setSaving] = useState(false);
+
   async function deleteCategory(name: string) {
     try {
       const res = await fetch('/api/categories', {
@@ -197,12 +208,22 @@ export default function AddRecord() {
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showManage ? 16 : 0 }}>
           <div style={cardTitle}>🏷️ Категории расходов</div>
-          <button
-            onClick={() => setShowManage(v => !v)}
-            style={{ background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: '5px 12px', color: C.sub, fontSize: 12, cursor: 'pointer' }}
-          >
-            {showManage ? 'Скрыть' : 'Управление'}
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={syncValidation}
+              disabled={saving}
+              title="Обновить дропдаун категорий в Google Таблице"
+              style={{ background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: '5px 12px', color: C.sub, fontSize: 12, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? .6 : 1 }}
+            >
+              🔄 Синхр. таблицу
+            </button>
+            <button
+              onClick={() => setShowManage(v => !v)}
+              style={{ background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: '5px 12px', color: C.sub, fontSize: 12, cursor: 'pointer' }}
+            >
+              {showManage ? 'Скрыть' : 'Управление'}
+            </button>
+          </div>
         </div>
 
         {showManage && (
