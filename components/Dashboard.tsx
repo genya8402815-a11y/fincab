@@ -113,10 +113,30 @@ export default function Dashboard() {
   const daysInMonth  = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
   const daysLeft     = daysInMonth - today;
   const curMonthKey  = `${String(nowDate.getMonth() + 1).padStart(2, '0')}.${nowDate.getFullYear()}`;
-  const curMonthExp  = entries
-    .filter(e => { if (e.type !== 'Расход') return false; const p = e.date.split('.'); return p.length >= 3 && `${p[1]}.${p[2]}` === curMonthKey; })
-    .reduce((s, e) => s + n(e.amount), 0);
-  const dailyRate       = today > 0 ? curMonthExp / today : 0;
+  const monthExpenseEntries = entries
+    .filter(e => { if (e.type !== 'Расход') return false; const p = e.date.split('.'); return p.length >= 3 && `${p[1]}.${p[2]}` === curMonthKey; });
+  const curMonthExp  = monthExpenseEntries.reduce((s, e) => s + n(e.amount), 0);
+  // Раньше dailyRate = curMonthExp / today (простое среднее) — один крупный разовый
+  // платёж 1-го числа (страховка, аренда и т.п.) задирал "средний день", и прогноз
+  // считал так, будто эта сумма будет улетать каждый день до конца месяца.
+  // Берём МЕДИАНУ трат по дням (включая дни без трат — иначе медиана тоже
+  // получится завышенной), чтобы один выброс не портил типичный дневной темп.
+  const dailyTotalsByDate = new Map<string, number>();
+  monthExpenseEntries.forEach(e => {
+    dailyTotalsByDate.set(e.date, (dailyTotalsByDate.get(e.date) ?? 0) + n(e.amount));
+  });
+  const dailyTotals: number[] = [];
+  for (let d = 1; d <= today; d++) {
+    const dateStr = `${String(d).padStart(2, '0')}.${curMonthKey}`;
+    dailyTotals.push(dailyTotalsByDate.get(dateStr) ?? 0);
+  }
+  dailyTotals.sort((a, b) => a - b);
+  function median(arr: number[]): number {
+    if (arr.length === 0) return 0;
+    const mid = Math.floor(arr.length / 2);
+    return arr.length % 2 !== 0 ? arr[mid] : (arr[mid - 1] + arr[mid]) / 2;
+  }
+  const dailyRate = median(dailyTotals);
   const forecastBalance = n(dash.balance) - dailyRate * daysLeft;
   const balanceAmt      = n(dash.balance);
   const forecastRatio   = balanceAmt > 0 ? forecastBalance / balanceAmt : 0;
