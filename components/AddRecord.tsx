@@ -37,6 +37,10 @@ function typeToCategory(opType: string): CatType {
   return 'expense';
 }
 
+function isSavingsType(opType: string): boolean {
+  return opType.includes('накопления');
+}
+
 const card: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
 const cardTitle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: C.sub, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 16 };
 const inputS: React.CSSProperties = { background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', color: C.text, fontSize: 14, outline: 'none', width: '100%' };
@@ -59,6 +63,9 @@ export default function AddRecord() {
   const [newCat,    setNewCat]   = useState('');
   const [catSaving, setCatSaving] = useState(false);
   const newCatRef = useRef<HTMLInputElement>(null);
+
+  const [goals,     setGoals]    = useState<string[]>([]);
+  const [opGoal,    setOpGoal]   = useState('');
 
   const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
   const hideToast = useCallback(() => setToast({ message: '', type: '' }), []);
@@ -86,9 +93,18 @@ export default function AddRecord() {
     }).catch(() => setCatsReady(true));
   }, []);
 
+  useEffect(() => {
+    fetch('/api/goals').then(r => r.json()).then((d: { goals: { name: string }[] }) => {
+      const names = (d.goals ?? []).map(g => g.name).filter(Boolean);
+      setGoals(names);
+      if (names.length > 0) setOpGoal(names[0]);
+    }).catch(() => {});
+  }, []);
+
   // При смене типа — переключаем на первую категорию нужного типа
   useEffect(() => {
     setOpCat(cats[typeToCategory(opType)]?.[0] ?? '');
+    if (isSavingsType(opType) && goals.length > 0) setOpGoal(goals[0]);
   }, [opType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function applyCats(d: Partial<CatsMap>) {
@@ -98,8 +114,18 @@ export default function AddRecord() {
   async function saveOp() {
     setOpSaving(true);
     try {
+      const strippedType = opType.replace(/^[^\s]+ /, '');
+      const isSavings = isSavingsType(opType);
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'operation', date: toRuDate(opDate), type: opType.replace(/^[^\s]+ /, ''), amount: opAmt, category: opCat, description: opDesc }) });
+        body: JSON.stringify({
+          kind: 'operation',
+          date: toRuDate(opDate),
+          type: strippedType,
+          amount: opAmt,
+          category: opCat,
+          target: isSavings ? opGoal : '',
+          description: opDesc,
+        }) });
       const data = await res.json();
       if (data.ok) { showToast('Операция записана!', 'success'); setOpAmt(''); setOpDesc(''); }
       else showToast(data.error ?? 'Ошибка', 'error');
@@ -197,6 +223,21 @@ export default function AddRecord() {
                 {activeCats.map(c => <option key={c}>{c}</option>)}
               </select>
             </Field>
+            {isSavingsType(opType) && (
+              <div style={{ gridColumn: '1/-1' }}>
+                <Field label="🎯 Цель накоплений">
+                  {goals.length > 0 ? (
+                    <select style={inputS} value={opGoal} onChange={e => setOpGoal(e.target.value)}>
+                      {goals.map(g => <option key={g}>{g}</option>)}
+                    </select>
+                  ) : (
+                    <div style={{ ...inputS, color: C.sub, fontSize: 13 }}>
+                      Нет целей — добавьте их в разделе 🎯 Цели
+                    </div>
+                  )}
+                </Field>
+              </div>
+            )}
             <div style={{ gridColumn: '1/-1' }}>
               <Field label="Описание">
                 <input style={inputS} placeholder="Необязательно" value={opDesc} onChange={e => setOpDesc(e.target.value)} />
