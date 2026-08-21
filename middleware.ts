@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Пути без авторизации вообще
 const PUBLIC_PATHS = [
   '/login',
+  '/api/auth/',   // Роут входа — должен быть публичным
   '/api/cron/',   // Vercel Cron — используют CRON_SECRET
   '/_next/',
   '/favicon.ico',
