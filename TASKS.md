@@ -48,22 +48,22 @@
 
 ## 🔴 Безопасность (P0 — исправить первым делом)
 
-- [ ] **#20** Удалить `vercel-env-vars.txt` из git + очистить историю (BFG Repo Cleaner), сменить пароль в Vercel
-- [ ] **#21** Убрать `/api/` из `PUBLIC_PATHS` в `middleware.ts` — добавить `X-API-Key` header для iOS Shortcuts
-- [ ] **#22** Исправить cookie: хранить UUID сессии вместо пароля (crypto.randomUUID → Vercel KV/in-memory map)
+- [x] **#20** ~~Удалить `vercel-env-vars.txt` из git + очистить историю (BFG Repo Cleaner), сменить пароль в Vercel~~ ✅
+- [x] **#21** ~~Убрать `/api/` из `PUBLIC_PATHS` в `middleware.ts` — добавить `X-API-Key` header (+ `?k=` query param) для iOS Shortcuts~~ ✅
+- [x] **#22** ~~Исправить cookie: хранить подписанный UUID-токен (HMAC-SHA256) вместо пароля~~ ✅
 
 ---
 
 ## 🟠 Архитектура (P1)
 
 - [x] **#23** ~~Исправить баг: "В накопления" не обновляло цели~~ — AddRecord теперь показывает dropdown целей, отправляет `target`, API пересчитывает накоплено в листе Цели ✅
-- [ ] **#24** Заменить хардкодные индексы ячеек в `dashboard/route.ts` на Named Ranges в Google Sheets
-- [ ] **#25** Заменить regex-замену формул в `appendShiftRow`/`appendOperationRow` на Sheets API `copyPaste` (batchUpdate)
+- [x] **#24** ~~Заменить хардкодные индексы ячеек в `dashboard/route.ts` на Named Ranges~~ — `lib/sheetRanges.ts`: константы SHEET, DASHBOARD.cells, RANGES, helper `cell()` ✅
+- [x] **#25** ~~Заменить regex-замену формул в `appendShiftRow`/`appendOperationRow` на Sheets API `copyPaste`~~ — хелперы `getSheetId()` + `copyRowFormulas()`, `PASTE_FORMULA` через batchUpdate ✅
 - [x] **#26** ~~Удалить мёртвый файл `components/Salary.tsx`~~ — удалён через `git rm` ✅
 - [x] **#27** ~~Убрать дублирование `getAuth()` в `reset-checkboxes/route.ts`~~ — теперь использует `getSheets()` из `lib/sheets.ts` ✅
 - [x] **#28** ~~Исправить категории в форме редактирования журнала~~ — `Journal.tsx` загружает из `/api/categories`, динамически по типу операции ✅
 - [x] **#29** ~~Добавить валидацию входных данных в `/api/add`~~ — amount > 0, дата DD.MM.YYYY, тип из VALID_TYPES ✅
-- [ ] **#30** Объединить запросы в `Analytics.tsx` и `Budget.tsx` — один fetch `/api/journal` на страницу (SWR/React Query)
+- [x] **#30** ~~Объединить запросы в `Analytics.tsx` и `Budget.tsx`~~ — `lib/useJournal.ts`: кеш 60с + дедупликация, оба компонента используют хук ✅
 
 ---
 
@@ -71,7 +71,7 @@
 
 - [x] **#31** ~~KPI "Свободно после обязательных" на дашборде~~ — Dashboard.tsx, 5-я карточка: Баланс − неоплаченные регулярные ✅
 - [x] **#32** ~~Добавить поле "Какой долг?" в форму AddRecord~~ — dropdown из активных долгов при типе "Платёж по долгу" ✅
-- [ ] **#33** Кнопка "Повторить операцию" в журнале — создать запись с теми же полями и сегодняшней датой
+- [x] **#33** ~~Кнопка "Повторить операцию" в журнале~~ — кнопка 🔁 рядом с ✏️/🗑️, POST /api/add с сегодняшней датой + invalidateJournalCache() ✅
 - [x] **#34** ~~Сравнение с прошлым месяцем в Аналитике~~ — стрелка ↑↓ и % изменения для каждой категории, KPI-дельты ✅
 - [ ] **#35** Debt-to-Income Ratio на дашборде = ежемесячные платежи по долгам / доход × 100%
 - [ ] **#36** Emergency Fund Coverage = Баланс / средние расходы за 3 мес (в месяцах)

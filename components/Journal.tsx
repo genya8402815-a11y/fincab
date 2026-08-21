@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { invalidateJournalCache } from '@/lib/useJournal';
 
 interface Entry {
   rowIndex: number;
@@ -77,8 +78,9 @@ export default function Journal() {
   const [search,      setSearch]      = useState('');
   const [editEntry,   setEditEntry]   = useState<{ rowIndex: number; form: EditForm } | null>(null);
   const [deletingRow, setDeletingRow] = useState<number | null>(null);
-  const [saving,      setSaving]      = useState(false);
-  const [saveError,   setSaveError]   = useState('');
+  const [saving,       setSaving]      = useState(false);
+  const [saveError,    setSaveError]   = useState('');
+  const [repeatingRow, setRepeatingRow] = useState<number | null>(null);
   const initialized = useRef(false);
 
   // Динамические данные для редактирования
@@ -165,6 +167,35 @@ export default function Journal() {
       setSaving(false);
     }
   };
+
+  const handleRepeat = useCallback(async (e: Entry) => {
+    setRepeatingRow(e.rowIndex);
+    try {
+      const now = new Date();
+      const today = [
+        String(now.getDate()).padStart(2, '0'),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        now.getFullYear(),
+      ].join('.');
+      const res = await fetch('/api/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'operation',
+          date: today,
+          type: e.type,
+          amount: e.amount,
+          category: e.category,
+          target: e.target,
+          description: e.description,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      invalidateJournalCache(); // сбрасываем кеш, чтобы Аналитика и Бюджет тоже обновились
+      await refresh();
+    } catch { /* silent */ }
+    finally { setRepeatingRow(null); }
+  }, [refresh]);
 
   if (loading) return <div style={{ color: C.sub, padding: 60, textAlign: 'center' }}>Загрузка…</div>;
   if (error)   return <div style={{ color: C.red, padding: 24 }}>{error}</div>;
@@ -296,6 +327,12 @@ export default function Journal() {
                             title="Редактировать"
                             style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: C.surface2, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >✏️</button>
+                          <button
+                            onClick={() => handleRepeat(e)}
+                            title="Повторить сегодня"
+                            disabled={repeatingRow === e.rowIndex}
+                            style={{ width: 28, height: 28, borderRadius: 6, border: 'none', background: repeatingRow === e.rowIndex ? `${C.green}30` : C.surface2, cursor: 'pointer', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: repeatingRow === e.rowIndex ? 0.6 : 1 }}
+                          >🔁</button>
                           <button
                             onClick={() => setDeletingRow(e.rowIndex)}
                             title="Удалить"
