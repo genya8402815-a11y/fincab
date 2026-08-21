@@ -1,16 +1,13 @@
 'use client';
 
-export type Section = 'dashboard' | 'add' | 'journal' | 'analytics' | 'budget' | 'shifts' | 'debts' | 'goals';
+export type Section = 'dashboard' | 'add' | 'journal' | 'shifts' | 'finance' | 'planning';
 
-const items = [
+const tabs = [
   { id: 'dashboard' as Section, emoji: '🏠', text: 'Дашборд' },
-  { id: 'add'       as Section, emoji: '➕', text: 'Записать' },
   { id: 'journal'   as Section, emoji: '📋', text: 'Журнал' },
-  { id: 'analytics' as Section, emoji: '📈', text: 'Аналитика' },
-  { id: 'budget'    as Section, emoji: '💡', text: 'Бюджет' },
   { id: 'shifts'    as Section, emoji: '📅', text: 'Смены' },
-  { id: 'debts'     as Section, emoji: '💳', text: 'Долги' },
-  { id: 'goals'     as Section, emoji: '🎯', text: 'Цели' },
+  { id: 'finance'   as Section, emoji: '📊', text: 'Финансы' },
+  { id: 'planning'  as Section, emoji: '🎯', text: 'Планирование' },
 ];
 
 interface Props { active: Section; onChange: (s: Section) => void; }
@@ -26,17 +23,29 @@ export default function Navigation({ active, onChange }: Props) {
         💰 ФИНКАБ
       </div>
       <div className="nav-scroll" style={{ flex: 1 }}>
-        {items.map(item => (
-          <button key={item.id} onClick={() => onChange(item.id)} style={{
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => onChange(tab.id)} style={{
             padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13,
             border: 'none', transition: '.2s', whiteSpace: 'nowrap', flexShrink: 0,
-            background: active === item.id ? 'var(--accent)' : 'transparent',
-            color: active === item.id ? '#fff' : 'var(--sub)',
+            background: active === tab.id ? 'var(--accent)' : 'transparent',
+            color: active === tab.id ? '#fff' : 'var(--sub)',
           }}>
-            {item.emoji} <span className="nav-label">{item.text}</span>
+            {tab.emoji} <span className="nav-label">{tab.text}</span>
           </button>
         ))}
       </div>
+      {/* Кнопка добавления — действие, не вкладка */}
+      <button
+        onClick={() => onChange('add')}
+        title="Записать операцию"
+        style={{
+          width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+          background: active === 'add' ? 'var(--accent2)' : 'var(--accent)',
+          border: 'none', cursor: 'pointer', fontSize: 18,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: '.2s', color: '#fff',
+        }}
+      >➕</button>
       <div style={{
         width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',

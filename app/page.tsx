@@ -5,11 +5,9 @@ import Navigation, { type Section } from '@/components/Navigation';
 import Dashboard from '@/components/Dashboard';
 import AddRecord  from '@/components/AddRecord';
 import Journal    from '@/components/Journal';
-import Goals      from '@/components/Goals';
-import Analytics  from '@/components/Analytics';
-import Budget     from '@/components/Budget';
+import Finance    from '@/components/Finance';
+import Planning   from '@/components/Planning';
 import Shifts     from '@/components/Shifts';
-import Debts      from '@/components/Debts';
 import PushSetup     from '@/components/PushSetup';
 import OfflineBanner from '@/components/OfflineBanner';
 
@@ -24,10 +22,8 @@ export default function Home() {
         {active === 'add'       && <AddRecord />}
         {active === 'journal'   && <Journal />}
         {active === 'shifts'    && <Shifts />}
-        {active === 'debts'     && <Debts />}
-        {active === 'goals'     && <Goals />}
-        {active === 'analytics' && <Analytics />}
-        {active === 'budget'    && <Budget />}
+        {active === 'finance'   && <Finance />}
+        {active === 'planning'  && <Planning />}
       </div>
     </div>
   );
