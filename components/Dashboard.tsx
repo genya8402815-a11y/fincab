@@ -103,6 +103,23 @@ export default function Dashboard() {
   const coverage = avgExpenses3m > 0 ? n(dash.balance) / avgExpenses3m : 0;
   const coverageColor = coverage >= 6 ? C.green : coverage >= 3 ? C.yellow : coverage >= 1 ? C.orange : C.red;
   const coverageLabel = coverage >= 6 ? 'отлично' : coverage >= 3 ? 'норма' : coverage >= 1 ? 'маловато' : '⚠️ мало';
+
+  // Прогноз к концу месяца
+  const today        = nowDate.getDate();
+  const daysInMonth  = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+  const daysLeft     = daysInMonth - today;
+  const curMonthKey  = `${String(nowDate.getMonth() + 1).padStart(2, '0')}.${nowDate.getFullYear()}`;
+  const curMonthExp  = entries
+    .filter(e => { if (e.type !== 'Расход') return false; const p = e.date.split('.'); return p.length >= 3 && `${p[1]}.${p[2]}` === curMonthKey; })
+    .reduce((s, e) => s + n(e.amount), 0);
+  const dailyRate       = today > 0 ? curMonthExp / today : 0;
+  const forecastBalance = n(dash.balance) - dailyRate * daysLeft;
+  const balanceAmt      = n(dash.balance);
+  const forecastRatio   = balanceAmt > 0 ? forecastBalance / balanceAmt : 0;
+  const forecastColor   = journalLoading || curMonthExp === 0 ? C.sub
+    : forecastBalance < 0 ? C.red : forecastRatio < 0.1 ? C.orange : forecastRatio < 0.2 ? C.yellow : C.green;
+  const forecastLabel   = forecastBalance < 0 ? '⚠️ уйдём в минус'
+    : forecastRatio < 0.1 ? 'мало' : forecastRatio < 0.2 ? 'маловато' : 'хороший запас';
   // -------------------------
 
   const GOAL_COLORS = [C.green, C.blue, C.yellow, C.orange, C.purple];
@@ -133,6 +150,13 @@ export default function Dashboard() {
           label="Подушка (мес.)"
           value={journalLoading ? '…' : avgExpenses3m > 0 ? coverage.toFixed(1) : '—'}
           sub={journalLoading ? 'загрузка…' : avgExpenses3m > 0 ? `${coverageLabel} · ср. ${fmt(Math.round(avgExpenses3m))}/мес` : 'нет данных'}
+        />
+        <KPI
+          color={forecastColor}
+          icon="🔮"
+          label="Прогноз к концу мес."
+          value={journalLoading ? '…' : curMonthExp > 0 ? fmt(Math.round(forecastBalance)) : '—'}
+          sub={journalLoading ? 'загрузка…' : curMonthExp > 0 ? `${forecastLabel} · темп ${fmt(Math.round(dailyRate))}/день` : 'нет расходов'}
         />
       </div>
 
