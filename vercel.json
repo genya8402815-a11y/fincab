@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/daily-summary",
       "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/cron/save-balance",
+      "schedule": "5 0 1 * *"
     }
   ]
 }

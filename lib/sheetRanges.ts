@@ -23,6 +23,7 @@ export const SHEET = {
   DEBTS:       '💳 Долги',
   CATEGORIES:  '⚙ Категории',
   PUSH_SUBS:   'Push',
+  HISTORY:     '📈 История',
 } as const;
 
 // ─── Дашборд ─────────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export const RANGES = {
   CATEGORIES:      `${SHEET.CATEGORIES}!B2:B50`,     // Кастомные категории
   PUSH_SUBS:       `${SHEET.PUSH_SUBS}!E1:E50`,      // Push-подписки
   BUDGET:          `${SHEET.BUDGET}!B3:D50`,         // Бюджет (категории + лимиты + факт)
+  HISTORY:         `${SHEET.HISTORY}!A:B`,           // Исторический баланс (месяц, сумма)
 } as const;
 
 // ─── Вспомогательная функция ─────────────────────────────────────────────────

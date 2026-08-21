@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import Analytics from './Analytics';
-import Budget    from './Budget';
+import Analytics      from './Analytics';
+import Budget         from './Budget';
+import BalanceHistory from './BalanceHistory';
 
-type SubTab = 'analytics' | 'budget';
+type SubTab = 'analytics' | 'budget' | 'history';
 
 const C = { accent: '#6c8ef7', sub: '#8892a4', border: '#2d3148', surface2: '#222535' };
 
@@ -16,6 +17,7 @@ export default function Finance() {
         {([
           { id: 'analytics' as SubTab, label: '📈 Аналитика' },
           { id: 'budget'    as SubTab, label: '💡 Бюджет' },
+          { id: 'history'   as SubTab, label: '📊 История' },
         ] as const).map(t => (
           <button
             key={t.id}
@@ -33,6 +35,7 @@ export default function Finance() {
       </div>
       {sub === 'analytics' && <Analytics />}
       {sub === 'budget'    && <Budget />}
+      {sub === 'history'   && <BalanceHistory />}
     </div>
   );
 }
