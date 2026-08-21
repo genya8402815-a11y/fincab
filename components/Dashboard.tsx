@@ -110,7 +110,11 @@ export default function Dashboard() {
   const cardTitle = { fontSize: 12, fontWeight: 600 as const, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: '.5px', marginBottom: 16 };
   const row  = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${C.border}`, fontSize: 13 };
 
-  const unpaidCount = regulars.filter(r => !r.paid).length;
+  // Скрываем хелперные строки (initial=0) и выплаченные долги (left=0)
+  const activeDebts     = debts.filter(d => n(d.initial) > 0 && n(d.left) > 0);
+  // Скрываем регулярные без суммы
+  const visibleRegulars = regulars.filter(r => n(r.amount) > 0);
+  const unpaidCount     = visibleRegulars.filter(r => !r.paid).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -120,7 +124,7 @@ export default function Dashboard() {
         <KPI color={C.green}   icon="💵" label="Остаток на счёте"       value={fmt(dash.balance)} />
         <KPI color={C.blue}    icon="📊" label="Зарплата (расчёт)"      value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
         <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? '⚠️ Не хватает' : `неопл. ${fmt(unpaidAmt)}`} />
-        <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
+        <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${activeDebts.length} долгов`} />
         <KPI color={C.yellow}  icon="🎯" label="Накопления"             value={fmt(dash.savings)} sub={`${goals.length} целей`} />
         <KPI color={salary > 0 ? dtiColor : C.sub} icon="📉" label="Нагрузка / Доход" value={salary > 0 ? `${dti}%` : '—'} sub={salary > 0 ? dtiLabel : 'нет данных'} />
         <KPI
@@ -154,21 +158,19 @@ export default function Dashboard() {
           {/* Долги */}
           <div style={card}>
             <div style={cardTitle}>💳 Долги — остаток</div>
-            {debts.length === 0
-              ? <span style={{ color: C.sub, fontSize: 13 }}>Нет долгов</span>
-              : debts.map((d, i) => (
-                <div key={i} style={{ ...row, ...(i === debts.length - 1 ? { borderBottom: 'none' } : {}) }}>
+            {activeDebts.length === 0
+              ? <span style={{ color: C.green, fontSize: 13 }}>✅ Все долги выплачены</span>
+              : activeDebts.map((d, i) => (
+                <div key={i} style={{ ...row, ...(i === activeDebts.length - 1 ? { borderBottom: 'none' } : {}) }}>
                   <span style={{ fontSize: 13 }}>{d.name}</span>
-                  <span style={{ color: n(d.left) === 0 ? C.green : C.red, fontWeight: 600, fontSize: 13 }}>
-                    {n(d.left) === 0 ? '0 ₽ ✅' : fmt(d.left)}
-                  </span>
+                  <span style={{ color: C.red, fontWeight: 600, fontSize: 13 }}>{fmt(d.left)}</span>
                 </div>
               ))
             }
           </div>
 
           {/* Регулярные платежи */}
-          {regulars.length > 0 && (
+          {visibleRegulars.length > 0 && (
             <div style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div style={cardTitle}>🔁 Регулярные платежи</div>
@@ -178,8 +180,8 @@ export default function Dashboard() {
                   </span>
                 )}
               </div>
-              {regulars.map((reg, i) => {
-                const isLast = i === regulars.length - 1;
+              {visibleRegulars.map((reg, i) => {
+                const isLast = i === visibleRegulars.length - 1;
                 const isToggling = toggling === reg.rowIndex;
                 return (
                   <div key={reg.rowIndex} style={{ ...row, ...(isLast ? { borderBottom: 'none' } : {}), opacity: isToggling ? .5 : 1 }}>
