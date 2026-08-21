@@ -25,6 +25,14 @@ async function readCol(col: string): Promise<string[]> {
   } catch { return []; }
 }
 
+// Перезаписывает весь столбец компактным списком (без дыр) и стирает "хвост".
+// Нужно, чтобы после удаления категории следующая запись через POST (которая
+// пишет в list.length+1) не попала в уже занятую задними рядами ячейку.
+async function writeCol(col: string, values: string[]) {
+  const padded = [...values, ...Array(100 - values.length).fill('')].slice(0, 100);
+  await writeRange(`${SHEET}!${col}1:${col}100`, padded.map(v => [v]));
+}
+
 type CatsMap = Record<CatType, string[]>;
 
 async function ensureSheet(): Promise<CatsMap> {
@@ -129,17 +137,23 @@ export async function DELETE(req: NextRequest) {
     const { name, type }: { name: string; type: CatType } = await req.json();
     if (!name?.trim() || !type) return NextResponse.json({ error: 'name and type required' }, { status: 400 });
     const col = COLS[type];
+    if (!col) return NextResponse.json({ error: 'invalid type' }, { status: 400 });
 
-    const rows = await readRange(`${SHEET}!${col}1:${col}100`);
-    for (let i = 0; i < rows.length; i++) {
-      if (String(rows[i][0] ?? '').trim().toLowerCase() === name.trim().toLowerCase()) {
-        await writeRange(`${SHEET}!${col}${i + 1}`, [['']] );
-        const cats = await ensureSheet();
-        syncJournalValidation(cats).catch(e => console.warn('syncValidation:', e));
-        return NextResponse.json({ ok: true, ...cats });
-      }
-    }
-    return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+    const list = await readCol(col);
+    const idx = list.findIndex(c => c.toLowerCase() === name.trim().toLowerCase());
+    if (idx === -1) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
+
+    // Раньше сюда писалась пустая строка ТОЛЬКО в найденную ячейку — это оставляло
+    // "дыру" в столбце. POST потом писал новую категорию в list.length+1 (счёт по
+    // непустым значениям), и эта позиция могла совпасть с уже занятой ячейкой ниже
+    // дыры — новая категория тихо стирала старую. Теперь весь столбец переписывается
+    // компактно, без дыр, поэтому такого совпадения больше не будет.
+    const updated = list.filter((_, i) => i !== idx);
+    await writeCol(col, updated);
+
+    const cats = await ensureSheet();
+    syncJournalValidation(cats).catch(e => console.warn('syncValidation:', e));
+    return NextResponse.json({ ok: true, ...cats });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
