@@ -87,13 +87,19 @@ export default function Dashboard() {
       {(() => {
         const freeAmt = n(dash.balance) - unpaidAmt;
         const freeColor = freeAmt >= 0 ? C.orange : C.red;
+        const totalRegulars = regulars.reduce((s, r) => s + n(r.amount), 0);
+        const salary = n(dash.salary);
+        const dti = salary > 0 ? Math.round((totalRegulars / salary) * 100) : 0;
+        const dtiColor = dti <= 20 ? C.green : dti <= 35 ? C.yellow : dti <= 50 ? C.orange : C.red;
+        const dtiLabel = dti <= 20 ? 'отлично' : dti <= 35 ? 'умеренно' : dti <= 50 ? 'высокая' : '⚠️ опасно';
         return (
-          <div className="grid-5">
+          <div className="grid-6">
             <KPI color={C.green}   icon="💵" label="Остаток на счёте"       value={fmt(dash.balance)} />
             <KPI color={C.blue}    icon="📊" label="Зарплата (расчёт)"      value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
             <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? '⚠️ Не хватает' : `неопл. ${fmt(unpaidAmt)}`} />
             <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
             <KPI color={C.yellow}  icon="🎯" label="Накопления"             value={fmt(dash.savings)} sub={`${goals.length} целей`} />
+            <KPI color={salary > 0 ? dtiColor : C.sub} icon="📉" label="Нагрузка / Доход" value={salary > 0 ? `${dti}%` : '—'} sub={salary > 0 ? dtiLabel : 'нет данных'} />
           </div>
         );
       })()}
