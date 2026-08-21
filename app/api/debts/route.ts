@@ -3,8 +3,8 @@ import { readRange } from '@/lib/sheets';
 
 export async function GET() {
   try {
-    // Долги: B6:E25 (название, начало, внесено, остаток)
-    const rows = await readRange('💳 Долги!B6:E25');
+    // Долги: B6:E22 (название, начало, внесено, остаток) — до 17 записей
+    const rows = await readRange('💳 Долги!B6:E22');
     const debts = rows
       .filter(r => r[0])
       .map(r => ({
