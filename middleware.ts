@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifySessionToken } from '@/lib/session';
 
+// Rate limiting: 60 req/min per IP (per Edge instance)
+const rlMap = new Map<string, { count: number; resetAt: number }>();
+const RL_MAX = 60;
+const RL_WINDOW = 60_000;
+
+function checkRL(ip: string): boolean {
+  const now = Date.now();
+  const e = rlMap.get(ip);
+  if (!e || now > e.resetAt) { rlMap.set(ip, { count: 1, resetAt: now + RL_WINDOW }); return true; }
+  if (e.count >= RL_MAX) return false;
+  e.count++;
+  return true;
+}
+
 // Пути без авторизации вообще
 const PUBLIC_PATHS = [
   '/login',
@@ -18,6 +32,14 @@ export async function middleware(request: NextRequest) {
   // Полностью публичные пути
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
     return NextResponse.next();
+  }
+
+  // Rate limiting — только для API-запросов
+  if (pathname.startsWith('/api/')) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '0.0.0.0';
+    if (!checkRL(ip)) {
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
+    }
   }
 
   const validApiKey = process.env.API_KEY;
