@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google, sheets_v4 } from 'googleapis';
 import { SHEET } from '@/lib/sheetRanges';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
@@ -15,6 +15,70 @@ export async function getSheets() {
   const auth = getAuth();
   return google.sheets({ version: 'v4', auth });
 }
+
+// ─── Приватные хелперы ────────────────────────────────────────────────────────
+
+/**
+ * Возвращает числовой sheetId листа по его имени.
+ * Нужен для batchUpdate-запросов (copyPaste, deleteDimension и т.д.)
+ */
+async function getSheetId(
+  sheets: sheets_v4.Sheets,
+  sheetName: string,
+): Promise<number> {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const sheet = meta.data.sheets?.find(s => s.properties?.title === sheetName);
+  const sheetId = sheet?.properties?.sheetId ?? null;
+  if (sheetId === null) {
+    throw new Error(`Sheet "${sheetName}" not found`);
+  }
+  return sheetId;
+}
+
+/**
+ * Копирует формулы из sourceRow в destRow через Sheets API copyPaste.
+ *
+ * Надёжнее regex-замены: Google Sheets сам адаптирует все относительные ссылки,
+ * включая формулы с несколькими строками или перекрёстными ссылками.
+ *
+ * @param startCol - 0-indexed (A=0, B=1, G=6, H=7, …)
+ * @param endCol   - 0-indexed, не включительно
+ */
+async function copyRowFormulas(
+  sheets: sheets_v4.Sheets,
+  sheetId: number,
+  sourceRow: number,  // 1-indexed номер строки в таблице
+  destRow: number,    // 1-indexed номер строки в таблице
+  startCol: number,
+  endCol: number,
+): Promise<void> {
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        copyPaste: {
+          source: {
+            sheetId,
+            startRowIndex: sourceRow - 1,  // batchUpdate использует 0-indexed
+            endRowIndex: sourceRow,
+            startColumnIndex: startCol,
+            endColumnIndex: endCol,
+          },
+          destination: {
+            sheetId,
+            startRowIndex: destRow - 1,
+            endRowIndex: destRow,
+            startColumnIndex: startCol,
+            endColumnIndex: endCol,
+          },
+          pasteType: 'PASTE_FORMULA',  // только формулы, без значений и форматирования
+        },
+      }],
+    },
+  });
+}
+
+// ─── Публичные функции ────────────────────────────────────────────────────────
 
 export async function readRange(range: string): Promise<string[][]> {
   const sheets = await getSheets();
@@ -62,11 +126,7 @@ export async function updateJournalRow(rowNumber: number, values: string[]): Pro
 
 export async function deleteJournalRow(rowNumber: number): Promise<void> {
   const sheets = await getSheets();
-  // Получаем числовой sheetId по имени листа
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-  const sheet = meta.data.sheets?.find(s => s.properties?.title === SHEET.JOURNAL);
-  const sheetId = sheet?.properties?.sheetId;
-  if (sheetId === undefined) throw new Error('Sheet not found');
+  const sheetId = await getSheetId(sheets, SHEET.JOURNAL);
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SPREADSHEET_ID,
     requestBody: {
@@ -75,46 +135,37 @@ export async function deleteJournalRow(rowNumber: number): Promise<void> {
           range: {
             sheetId,
             dimension: 'ROWS',
-            startIndex: rowNumber - 1, // 0-indexed
-            endIndex: rowNumber,       // exclusive
-          }
-        }
-      }]
-    }
+            startIndex: rowNumber - 1,  // 0-indexed
+            endIndex: rowNumber,        // exclusive
+          },
+        },
+      }],
+    },
   });
 }
 
 /**
  * Добавляет строку в Журнал операций (B:G) и копирует формулы месяца/года (H:I)
- * из предыдущей строки в новую.
+ * из предыдущей строки через Sheets API copyPaste.
  */
 export async function appendOperationRow(values: string[]): Promise<void> {
   const sheets = await getSheets();
   const sheetName = SHEET.JOURNAL;
 
-  // 1. Находим последнюю заполненную строку в колонке B (начиная с 5)
+  // 1. Находим последнюю заполненную строку в колонке B (данные начинаются с B5)
   const colRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: `${sheetName}!B:B`,
   });
   const rows = colRes.data.values ?? [];
-  let lastDataRow = 4; // 0-indexed; row 5 = index 4
+  let lastDataRow = 4;  // 0-indexed; row 5 → index 4
   for (let i = 4; i < rows.length; i++) {
     if (rows[i]?.[0]) lastDataRow = i;
   }
-  const lastSheetRow = lastDataRow + 1; // 1-indexed
+  const lastSheetRow = lastDataRow + 1;  // 1-indexed
   const newSheetRow  = lastSheetRow + 1;
 
-  // 2. Читаем формулы из H:I последней строки
-  const formulaRes = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!H${lastSheetRow}:I${lastSheetRow}`,
-    valueRenderOption: 'FORMULA',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any);
-  const formulaRow = (formulaRes as any).data.values?.[0] ?? [];
-
-  // 3. Записываем данные (B:G) в новую строку
+  // 2. Записываем данные (B:G) в новую строку
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `${sheetName}!B${newSheetRow}`,
@@ -122,58 +173,46 @@ export async function appendOperationRow(values: string[]): Promise<void> {
     requestBody: { values: [values] },
   });
 
-  // 4. Адаптируем формулы к новой строке и записываем H:I
-  if (formulaRow.length > 0) {
-    const adaptedFormulas = formulaRow.map((f: string) =>
-      typeof f === 'string' && f.startsWith('=')
-        ? f.replace(new RegExp(`${lastSheetRow}`, 'g'), String(newSheetRow))
-        : f
-    );
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!H${newSheetRow}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [adaptedFormulas] },
-    });
+  // 3. Копируем формулы (H:I — месяц и год) из предыдущей строки в новую.
+  //    Google Sheets адаптирует относительные ссылки автоматически.
+  //    H = 0-indexed 7, I = 8, endCol = 9 (не включительно)
+  try {
+    const sheetId = await getSheetId(sheets, sheetName);
+    await copyRowFormulas(sheets, sheetId, lastSheetRow, newSheetRow, 7, 9);
+  } catch (e) {
+    console.warn('appendOperationRow: не удалось скопировать формулы (H:I):', e);
   }
 }
 
 /**
- * Добавляет строку со значениями (B:F), затем копирует формулы из предыдущей строки
- * для колонок G и далее (ЗП, месяц, год и т.д.)
+ * Добавляет строку со значениями (B:F) в лист смен, затем копирует формулы
+ * (G:Z — ЗП, месяц, год и т.д.) из предыдущей строки через Sheets API copyPaste.
+ *
+ * @param sheetName - имя листа (используй SHEET.SHIFTS)
+ * @param _dataRange - не используется, оставлен для совместимости с вызовами
+ * @param values    - данные для записи в B:F
  */
 export async function appendShiftRow(
   sheetName: string,
-  dataRange: string,   // напр. "B5:F5"
+  _dataRange: string,
   values: string[],
 ): Promise<void> {
   const sheets = await getSheets();
 
-  // 1. Получаем текущее кол-во строк с данными чтобы знать номер последней строки
-  const colB = `${sheetName}!B:B`;
+  // 1. Находим последнюю заполненную строку в колонке B (данные начинаются с B5)
   const colRes = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: colB,
+    range: `${sheetName}!B:B`,
   });
   const rows = colRes.data.values ?? [];
-  // Находим последнюю непустую строку в колонке B (с данными смен, начиная с B5)
-  let lastDataRow = 4; // 0-indexed row 4 = spreadsheet row 5
+  let lastDataRow = 4;  // 0-indexed row 4 = spreadsheet row 5
   for (let i = 4; i < rows.length; i++) {
     if (rows[i]?.[0]) lastDataRow = i;
   }
-  const lastSheetRow = lastDataRow + 1; // 1-indexed
+  const lastSheetRow = lastDataRow + 1;  // 1-indexed
   const newSheetRow  = lastSheetRow + 1;
 
-  // 2. Читаем формулы из последней строки с данными (G..Z)
-  const formulaRange = `${sheetName}!G${lastSheetRow}:Z${lastSheetRow}`;
-  const formulaRes = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: formulaRange,
-    valueRenderOption: 'FORMULA',
-  });
-  const formulaRow = formulaRes.data.values?.[0] ?? [];
-
-  // 3. Записываем данные (B:F) в новую строку
+  // 2. Записываем данные (B:F) в новую строку
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `${sheetName}!B${newSheetRow}`,
@@ -181,19 +220,12 @@ export async function appendShiftRow(
     requestBody: { values: [values] },
   });
 
-  // 4. Если есть формулы — адаптируем их к новой строке и пишем
-  if (formulaRow.length > 0) {
-    // Заменяем номер строки в формулах (напр. B87 → B88)
-    const adaptedFormulas = formulaRow.map((f: string) =>
-      typeof f === 'string' && f.startsWith('=')
-        ? f.replace(new RegExp(`${lastSheetRow}`, 'g'), String(newSheetRow))
-        : f
-    );
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${sheetName}!G${newSheetRow}`,
-      valueInputOption: 'USER_ENTERED',
-      requestBody: { values: [adaptedFormulas] },
-    });
+  // 3. Копируем формулы (G:Z — ЗП, месяц, год, ...) из предыдущей строки в новую.
+  //    G = 0-indexed 6, Z = 25, endCol = 26 (не включительно)
+  try {
+    const sheetId = await getSheetId(sheets, sheetName);
+    await copyRowFormulas(sheets, sheetId, lastSheetRow, newSheetRow, 6, 26);
+  } catch (e) {
+    console.warn('appendShiftRow: не удалось скопировать формулы (G:Z):', e);
   }
 }
