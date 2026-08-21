@@ -81,6 +81,21 @@ export default function Journal() {
   const [saveError,   setSaveError]   = useState('');
   const initialized = useRef(false);
 
+  // Динамические данные для редактирования
+  const [cats,  setCats]  = useState<Record<string, string[]>>({});
+  const [goals, setGoals] = useState<string[]>([]);
+  const [debts, setDebts] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetch('/api/categories').then(r => r.json()).then((d: Record<string, string[]>) => setCats(d)).catch(() => {});
+    fetch('/api/goals').then(r => r.json()).then((d: { goals: { name: string }[] }) =>
+      setGoals((d.goals ?? []).map(g => g.name).filter(Boolean))
+    ).catch(() => {});
+    fetch('/api/debts').then(r => r.json()).then((d: { debts: { name: string }[] }) =>
+      setDebts((d.debts ?? []).map(db => db.name).filter(Boolean))
+    ).catch(() => {});
+  }, []);
+
   const fetchEntries = useCallback(async (): Promise<Entry[]> => {
     const res = await fetch('/api/journal');
     const d = await res.json();
@@ -352,22 +367,57 @@ export default function Journal() {
             {/* Категория */}
             <div>
               <label style={{ fontSize: 12, color: C.sub, display: 'block', marginBottom: 6 }}>Категория</label>
-              <input
-                value={editEntry.form.category}
-                onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
-                style={inputSt}
-              />
+              {(() => {
+                const t = editEntry.form.type;
+                const catKey = t === 'Доход' ? 'income' : t.includes('накопления') ? 'savings' : t.includes('долгу') ? 'debt' : 'expense';
+                const list = cats[catKey] ?? [];
+                return list.length > 0 ? (
+                  <select
+                    value={editEntry.form.category}
+                    onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
+                    style={inputSt}
+                  >
+                    {list.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    value={editEntry.form.category}
+                    onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
+                    style={inputSt}
+                  />
+                );
+              })()}
             </div>
 
             {/* Цель / Долг */}
-            <div>
-              <label style={{ fontSize: 12, color: C.sub, display: 'block', marginBottom: 6 }}>Цель / Долг</label>
-              <input
-                value={editEntry.form.target}
-                onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, target: ev.target.value } })}
-                style={inputSt}
-              />
-            </div>
+            {(() => {
+              const t = editEntry.form.type;
+              const isSavings = t.includes('накопления');
+              const isDebt    = t.includes('долгу');
+              if (!isSavings && !isDebt) return null;
+              const label = isSavings ? '🎯 Цель накоплений' : '💳 Какой долг?';
+              const list  = isSavings ? goals : debts;
+              return (
+                <div>
+                  <label style={{ fontSize: 12, color: C.sub, display: 'block', marginBottom: 6 }}>{label}</label>
+                  {list.length > 0 ? (
+                    <select
+                      value={editEntry.form.target}
+                      onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, target: ev.target.value } })}
+                      style={inputSt}
+                    >
+                      {list.map(item => <option key={item}>{item}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      value={editEntry.form.target}
+                      onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, target: ev.target.value } })}
+                      style={inputSt}
+                    />
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Описание */}
             <div>

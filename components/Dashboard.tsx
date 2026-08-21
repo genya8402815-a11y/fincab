@@ -84,12 +84,19 @@ export default function Dashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
       {/* KPI */}
-      <div className="grid-4">
-        <KPI color={C.green}  icon="💵" label="Остаток на счёте"  value={fmt(dash.balance)} />
-        <KPI color={C.blue}   icon="📊" label="Зарплата (расчёт)" value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
-        <KPI color={C.red}    icon="💳" label="Общий долг"        value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
-        <KPI color={C.yellow} icon="🎯" label="Накопления"        value={fmt(dash.savings)} sub={`${goals.length} целей`} />
-      </div>
+      {(() => {
+        const freeAmt = n(dash.balance) - unpaidAmt;
+        const freeColor = freeAmt >= 0 ? C.orange : C.red;
+        return (
+          <div className="grid-5">
+            <KPI color={C.green}   icon="💵" label="Остаток на счёте"       value={fmt(dash.balance)} />
+            <KPI color={C.blue}    icon="📊" label="Зарплата (расчёт)"      value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
+            <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? '⚠️ Не хватает' : `неопл. ${fmt(unpaidAmt)}`} />
+            <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
+            <KPI color={C.yellow}  icon="🎯" label="Накопления"             value={fmt(dash.savings)} sub={`${goals.length} целей`} />
+          </div>
+        );
+      })()}
 
       {/* Трекер + Долги + Регулярные */}
       <div className="grid-2-1">

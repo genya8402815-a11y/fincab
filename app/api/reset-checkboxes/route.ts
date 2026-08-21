@@ -1,15 +1,7 @@
 import { NextResponse } from 'next/server';
-import { google } from 'googleapis';
+import { getSheets } from '@/lib/sheets';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
-
-function getAuth() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
-  return new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
-}
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -22,8 +14,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const authClient = getAuth();
-    const sheets = google.sheets({ version: 'v4', auth: authClient });
+    const sheets = await getSheets();
 
     // Сбрасываем чекбоксы F6:F20 в FALSE
     const values = Array.from({ length: 15 }, () => [false]);

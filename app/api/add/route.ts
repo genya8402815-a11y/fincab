@@ -43,10 +43,22 @@ export async function POST(req: NextRequest) {
     console.log('📥 /api/add body:', JSON.stringify(body));
     const { kind } = body;
 
+    const VALID_TYPES = ['Расход', 'Доход', 'В накопления', 'Из накоплений', 'Платёж по долгу'];
+
     if (kind === 'operation') {
       const { date, type, amount, category, target, description } = body;
       if (!date || !type || !amount) {
         return NextResponse.json({ error: 'Заполните обязательные поля' }, { status: 400 });
+      }
+      if (!VALID_TYPES.includes(type)) {
+        return NextResponse.json({ error: 'Неверный тип операции' }, { status: 400 });
+      }
+      const numAmount = parseFloat(String(amount).replace(',', '.'));
+      if (isNaN(numAmount) || numAmount <= 0) {
+        return NextResponse.json({ error: 'Сумма должна быть больше 0' }, { status: 400 });
+      }
+      if (!/^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
+        return NextResponse.json({ error: 'Дата должна быть в формате ДД.ММ.ГГГГ' }, { status: 400 });
       }
       await appendOperationRow([
         date, type, amount, category ?? '', target ?? '', description ?? '',

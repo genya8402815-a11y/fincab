@@ -40,6 +40,9 @@ function typeToCategory(opType: string): CatType {
 function isSavingsType(opType: string): boolean {
   return opType.includes('накопления');
 }
+function isDebtType(opType: string): boolean {
+  return opType.includes('долгу');
+}
 
 const card: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
 const cardTitle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: C.sub, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 16 };
@@ -66,6 +69,8 @@ export default function AddRecord() {
 
   const [goals,     setGoals]    = useState<string[]>([]);
   const [opGoal,    setOpGoal]   = useState('');
+  const [debts,     setDebts]    = useState<string[]>([]);
+  const [opDebt,    setOpDebt]   = useState('');
 
   const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
   const hideToast = useCallback(() => setToast({ message: '', type: '' }), []);
@@ -101,6 +106,14 @@ export default function AddRecord() {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch('/api/debts').then(r => r.json()).then((d: { debts: { name: string }[] }) => {
+      const names = (d.debts ?? []).map(db => db.name).filter(Boolean);
+      setDebts(names);
+      if (names.length > 0) setOpDebt(names[0]);
+    }).catch(() => {});
+  }, []);
+
   // При смене типа — переключаем на первую категорию нужного типа
   useEffect(() => {
     setOpCat(cats[typeToCategory(opType)]?.[0] ?? '');
@@ -116,6 +129,8 @@ export default function AddRecord() {
     try {
       const strippedType = opType.replace(/^[^\s]+ /, '');
       const isSavings = isSavingsType(opType);
+      const isDebt    = isDebtType(opType);
+      const target    = isSavings ? opGoal : isDebt ? opDebt : '';
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           kind: 'operation',
@@ -123,7 +138,7 @@ export default function AddRecord() {
           type: strippedType,
           amount: opAmt,
           category: opCat,
-          target: isSavings ? opGoal : '',
+          target,
           description: opDesc,
         }) });
       const data = await res.json();
@@ -233,6 +248,21 @@ export default function AddRecord() {
                   ) : (
                     <div style={{ ...inputS, color: C.sub, fontSize: 13 }}>
                       Нет целей — добавьте их в разделе 🎯 Цели
+                    </div>
+                  )}
+                </Field>
+              </div>
+            )}
+            {isDebtType(opType) && (
+              <div style={{ gridColumn: '1/-1' }}>
+                <Field label="💳 Какой долг?">
+                  {debts.length > 0 ? (
+                    <select style={inputS} value={opDebt} onChange={e => setOpDebt(e.target.value)}>
+                      {debts.map(d => <option key={d}>{d}</option>)}
+                    </select>
+                  ) : (
+                    <div style={{ ...inputS, color: C.sub, fontSize: 13 }}>
+                      Нет долгов — добавьте их в разделе 💳 Долги
                     </div>
                   )}
                 </Field>

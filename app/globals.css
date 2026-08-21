@@ -59,6 +59,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 
 /* Responsive layout */
 .page-wrap  { padding: 24px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.grid-5     { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
 .grid-4     { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .grid-3     { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-2-1   { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
@@ -73,6 +74,7 @@ body { background: var(--bg); color: var(--text); font-family: 'Inter', system-u
 @media (max-width: 640px) {
   .nav-label { display: none; }
   .page-wrap  { padding: 12px; }
+  .grid-5     { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .grid-4     { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .grid-3     { grid-template-columns: 1fr; gap: 10px; }
   .grid-2-1   { grid-template-columns: 1fr; gap: 10px; }
