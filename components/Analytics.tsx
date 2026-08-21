@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface Entry {
   date: string; type: string; amount: string; category: string;
@@ -29,6 +29,37 @@ function parseDateKey(date: string) {
 
 function n(v: string) { return parseFloat(String(v || '0').replace(/\s/g, '').replace(',', '.')) || 0; }
 function money(v: number) { return Math.abs(v).toLocaleString('ru-RU') + ' ₽'; }
+
+function prevMonthKey(key: string): string {
+  const [mm, yyyy] = key.split('.');
+  const d = new Date(parseInt(yyyy), parseInt(mm) - 2, 1);
+  return `${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+}
+
+function Delta({ cur, prev }: { cur: number; prev: number }) {
+  if (prev === 0) return <span style={{ color: '#8892a4', fontSize: 11 }}>new</span>;
+  const pct = ((cur - prev) / prev) * 100;
+  const up  = pct > 0;
+  const color = up ? '#f87171' : '#4ade80'; // расходы: рост = плохо (красный), падение = хорошо (зелёный)
+  return (
+    <span style={{ color, fontWeight: 600, fontSize: 12, whiteSpace: 'nowrap' }}>
+      {up ? '↑' : '↓'} {Math.abs(pct).toFixed(0)}%
+    </span>
+  );
+}
+
+function KpiDelta({ cur, prev, inverse = false }: { cur: number; prev: number; inverse?: boolean }) {
+  if (prev === 0 || cur === prev) return null;
+  const pct = ((cur - prev) / prev) * 100;
+  const up  = pct > 0;
+  // inverse=true → рост хорошо (доходы); inverse=false → рост плохо (расходы)
+  const color = (inverse ? up : !up) ? '#4ade80' : '#f87171';
+  return (
+    <span style={{ fontSize: 11, color, marginLeft: 4 }}>
+      {up ? '↑' : '↓'}{Math.abs(pct).toFixed(0)}%
+    </span>
+  );
+}
 
 // SVG donut chart
 function Donut({ segs, center }: { segs: { color: string; pct: number }[]; center: string }) {
@@ -60,7 +91,7 @@ function Donut({ segs, center }: { segs: { color: string; pct: number }[]; cente
   );
 }
 
-function KPI({ color, icon, label, value, sub }: { color: string; icon: string; label: string; value: string; sub?: string }) {
+function KPI({ color, icon, label, value, sub }: { color: string; icon: string; label: string; value: string; sub?: React.ReactNode }) {
   return (
     <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20, position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color }} />
@@ -120,6 +151,17 @@ export default function Analytics() {
     }))
     .sort((a, b) => b.amount - a.amount);
 
+  // Данные предыдущего месяца (только при выбранном месяце)
+  const prevKey    = selMonth ? prevMonthKey(selMonth) : null;
+  const prevByMonth = prevKey ? entries.filter(e => parseDateKey(e.date)?.key === prevKey) : [];
+  const prevIncome  = prevByMonth.filter(e => e.type === 'Доход').reduce((s, e) => s + n(e.amount), 0);
+  const prevExpense = prevByMonth.filter(e => e.type === 'Расход').reduce((s, e) => s + n(e.amount), 0);
+  const prevCatMap  = new Map<string, number>();
+  prevByMonth.filter(e => e.type === 'Расход').forEach(e => {
+    const cat = e.category || 'Прочее';
+    prevCatMap.set(cat, (prevCatMap.get(cat) ?? 0) + n(e.amount));
+  });
+
   // Тренд: последние 6 месяцев
   const last6 = months.slice(0, 6).reverse();
   const maxBar = Math.max(1, ...last6.map(([key]) => {
@@ -153,8 +195,10 @@ export default function Analytics() {
 
       {/* KPI */}
       <div className="grid-4">
-        <KPI color={C.green}  icon="💵" label="Доходы"     value={money(income)} />
-        <KPI color={C.red}    icon="🛒" label="Расходы"    value={money(expense)} />
+        <KPI color={C.green}  icon="💵" label="Доходы"  value={money(income)}
+          sub={prevKey ? <KpiDelta cur={income}  prev={prevIncome}  inverse /> : undefined} />
+        <KPI color={C.red}    icon="🛒" label="Расходы" value={money(expense)}
+          sub={prevKey ? <KpiDelta cur={expense} prev={prevExpense} /> : undefined} />
         <KPI color={balance >= 0 ? C.blue : C.red} icon="📊" label="Баланс"
           value={money(balance)} sub={balance >= 0 ? 'профицит' : 'дефицит'} />
         <KPI color={saveRate >= 0 ? C.green : C.red} icon="🏦" label="Норма сбережений"
@@ -190,12 +234,14 @@ export default function Analytics() {
                   <th style={thS}>Сумма</th>
                   <th style={thS}>%</th>
                   <th style={thS}>Раз</th>
+                  {prevKey && <th style={thS}>vs пред. мес.</th>}
                 </tr>
               </thead>
               <tbody>
                 {cats.map((cat, i) => {
                   const isLast = i === cats.length - 1;
                   const border = isLast ? 'none' : `1px solid ${C.border}`;
+                  const prev   = prevKey ? (prevCatMap.get(cat.name) ?? 0) : 0;
                   return (
                     <tr key={cat.name}>
                       <td style={{ padding: '10px 8px', borderBottom: border }}>
@@ -212,6 +258,11 @@ export default function Analytics() {
                       </td>
                       <td style={{ padding: '10px 8px', textAlign: 'right', color: C.sub, borderBottom: border }}>{cat.pct.toFixed(1)}%</td>
                       <td style={{ padding: '10px 8px', textAlign: 'right', color: C.sub, borderBottom: border }}>{cat.count}×</td>
+                      {prevKey && (
+                        <td style={{ padding: '10px 8px', textAlign: 'right', borderBottom: border }}>
+                          <Delta cur={cat.amount} prev={prev} />
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
