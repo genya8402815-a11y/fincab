@@ -1,11 +1,7 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-
-interface Entry {
-  date: string; type: string; amount: string; category: string;
-  target: string; description: string;
-}
+import React, { useEffect, useRef, useState } from 'react';
+import { useJournal, type JournalEntry as Entry } from '@/lib/useJournal';
 
 const C = {
   green: '#4ade80', red: '#f87171', blue: '#6c8ef7', yellow: '#fbbf24',
@@ -104,23 +100,19 @@ function KPI({ color, icon, label, value, sub }: { color: string; icon: string; 
 }
 
 export default function Analytics() {
-  const [entries,  setEntries]  = useState<Entry[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [error,    setError]    = useState('');
+  const { entries, loading, error } = useJournal();
   const [selMonth, setSelMonth] = useState('');
+  const monthInitRef = useRef(false);
 
+  // Инициализируем текущий месяц при первом появлении данных
   useEffect(() => {
-    fetch('/api/journal').then(r => r.json())
-      .then(d => {
-        const data: Entry[] = d.entries ?? [];
-        setEntries(data);
-        const now = new Date();
-        const cur = `${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
-        setSelMonth(data.some(e => parseDateKey(e.date)?.key === cur) ? cur : '');
-        setLoading(false);
-      })
-      .catch(() => { setError('Ошибка загрузки'); setLoading(false); });
-  }, []);
+    if (!loading && !monthInitRef.current && entries.length > 0) {
+      monthInitRef.current = true;
+      const now = new Date();
+      const cur = `${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
+      setSelMonth(entries.some(e => parseDateKey(e.date)?.key === cur) ? cur : '');
+    }
+  }, [loading, entries]);
 
   if (loading) return <div style={{ color: C.sub, padding: 60, textAlign: 'center' }}>Загрузка…</div>;
   if (error)   return <div style={{ color: C.red, padding: 24 }}>{error}</div>;

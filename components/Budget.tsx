@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-
-interface Entry { date: string; type: string; amount: string; category: string; }
+import { useJournal } from '@/lib/useJournal';
 
 const C = {
   green: '#4ade80', red: '#f87171', yellow: '#fbbf24', blue: '#6c8ef7',
@@ -36,29 +35,34 @@ function KPI({ color, icon, label, value, sub }: { color: string; icon: string; 
 }
 
 export default function Budget() {
-  const [entries,  setEntries]  = useState<Entry[]>([]);
-  const [budgets,  setBudgets]  = useState<Record<string, number>>({});
-  const [loading,  setLoading]  = useState(true);
-  const [selMonth, setSelMonth] = useState('');
-  const [editing,  setEditing]  = useState<string | null>(null); // category being edited
-  const [editVal,  setEditVal]  = useState('');
-  const [saving,   setSaving]   = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const { entries, loading: journalLoading } = useJournal();
+  const [budgets,       setBudgets]  = useState<Record<string, number>>({});
+  const [budgetLoading, setBudgetLoading] = useState(true);
+  const [selMonth,      setSelMonth] = useState('');
+  const [editing,       setEditing]  = useState<string | null>(null);
+  const [editVal,       setEditVal]  = useState('');
+  const [saving,        setSaving]   = useState(false);
+  const inputRef     = useRef<HTMLInputElement>(null);
+  const monthInitRef = useRef(false);
 
+  const loading = journalLoading || budgetLoading;
+
+  // Загружаем только бюджетные лимиты — журнал приходит из кеша через useJournal
   useEffect(() => {
-    Promise.all([
-      fetch('/api/journal').then(r => r.json()),
-      fetch('/api/budget').then(r => r.json()),
-    ]).then(([j, b]) => {
-      const data: Entry[] = j.entries ?? [];
-      setEntries(data);
-      setBudgets(b.budgets ?? {});
+    fetch('/api/budget').then(r => r.json())
+      .then(b => { setBudgets(b.budgets ?? {}); setBudgetLoading(false); })
+      .catch(() => setBudgetLoading(false));
+  }, []);
+
+  // Инициализируем текущий месяц при первом появлении данных журнала
+  useEffect(() => {
+    if (!journalLoading && !monthInitRef.current && entries.length > 0) {
+      monthInitRef.current = true;
       const now = new Date();
       const cur = `${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
-      setSelMonth(data.some(e => parseDateKey(e.date)?.key === cur) ? cur : '');
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
+      setSelMonth(entries.some(e => parseDateKey(e.date)?.key === cur) ? cur : '');
+    }
+  }, [journalLoading, entries]);
 
   // Когда начинаем редактировать — фокус на инпут
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
