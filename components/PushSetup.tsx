@@ -32,12 +32,16 @@ export default function PushSetup() {
 
   async function subscribe() {
     setStatus('loading');
+    const timer = (ms: number) => new Promise<never>((_, r) => setTimeout(() => r(new Error('timeout')), ms));
     try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
+      const reg = await Promise.race([navigator.serviceWorker.ready, timer(8000)]);
+      const sub = await Promise.race([
+        reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        }),
+        timer(10000),
+      ]);
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -45,7 +49,7 @@ export default function PushSetup() {
       });
       setStatus('subscribed');
     } catch (e) {
-      console.error(e);
+      console.error('push subscribe error:', e);
       setStatus('idle');
     }
   }
