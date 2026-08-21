@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+
 export type Section = 'dashboard' | 'add' | 'journal' | 'shifts' | 'finance' | 'planning';
 
 const tabs = [
@@ -13,6 +15,15 @@ const tabs = [
 interface Props { active: Section; onChange: (s: Section) => void; }
 
 export default function Navigation({ active, onChange }: Props) {
+  const router = useRouter();
+
+  async function handleLogout() {
+    if (!confirm('Выйти из аккаунта?')) return;
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  }
+
   return (
     <nav style={{
       background: 'var(--surface)', borderBottom: '1px solid var(--border)',
@@ -46,6 +57,17 @@ export default function Navigation({ active, onChange }: Props) {
           transition: '.2s', color: '#fff',
         }}
       >➕</button>
+      <button
+        onClick={handleLogout}
+        title="Выйти из аккаунта"
+        style={{
+          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+          background: 'transparent', border: '1px solid var(--border)',
+          cursor: 'pointer', fontSize: 15, color: 'var(--sub)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: '.2s',
+        }}
+      >⏻</button>
       <div style={{
         width: 32, height: 32, borderRadius: '50%', background: 'var(--accent)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
