@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Toast from '@/components/Toast';
+import { invalidateJournalCache } from '@/lib/useJournal';
 
 const C = { blue: '#6c8ef7', green: '#4ade80', red: '#f87171', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27', surface2: '#222535', text: '#e2e8f0' };
 
@@ -142,7 +143,10 @@ export default function AddRecord() {
           description: opDesc,
         }) });
       const data = await res.json();
-      if (data.ok) { showToast('Операция записана!', 'success'); setOpAmt(''); setOpDesc(''); }
+      if (data.ok) {
+        invalidateJournalCache(); // иначе Журнал/Аналитика/Дашборд ещё до минуты видели бы старые данные
+        showToast('Операция записана!', 'success'); setOpAmt(''); setOpDesc('');
+      }
       else showToast(data.error ?? 'Ошибка', 'error');
     } catch { showToast('Ошибка сети', 'error'); }
     setOpSaving(false);
