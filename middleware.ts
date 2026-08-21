@@ -22,10 +22,14 @@ export async function middleware(request: NextRequest) {
 
   const validApiKey = process.env.API_KEY;
 
-  // X-API-Key — для iOS Shortcuts и внешних клиентов
+  // X-API-Key — для iOS Shortcuts: заголовок ИЛИ query-параметр ?k=...
   if (validApiKey) {
-    const apiKey = request.headers.get('x-api-key');
-    if (apiKey && apiKey === validApiKey) return NextResponse.next();
+    const headerKey = request.headers.get('x-api-key');
+    const queryKey  = request.nextUrl.searchParams.get('k');
+    if ((headerKey && headerKey === validApiKey) ||
+        (queryKey  && queryKey  === validApiKey)) {
+      return NextResponse.next();
+    }
   }
 
   // Cookie-аутентификация — проверяем подписанный UUID-токен
