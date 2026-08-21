@@ -216,6 +216,24 @@ export default function Journal() {
     : byMonth;
   const displayed = [...filtered].reverse();
 
+  const handleExportCSV = () => {
+    const headers = ['Дата', 'Тип', 'Сумма', 'Категория', 'Цель/Долг', 'Описание'];
+    const rows = displayed.map(e =>
+      [e.date, e.type, e.amount, e.category, e.target, e.description]
+        .map(v => `"${String(v ?? '').replace(/"/g, '""')}"`)
+        .join(',')
+    );
+    const csv = '﻿' + [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const monthPart = selMonth ? selMonth.replace('.', '-') : 'all';
+    a.href = url;
+    a.download = `journal_${monthPart}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const income  = byMonth.filter(e => e.type === 'Доход').reduce((s, e) => s + n(e.amount), 0);
   const expense = byMonth.filter(e => e.type === 'Расход').reduce((s, e) => s + n(e.amount), 0);
   const savings = byMonth.filter(e => e.type === 'В накопления').reduce((s, e) => s + n(e.amount), 0);
@@ -266,6 +284,16 @@ export default function Journal() {
           style={{ flex: 1, minWidth: 200, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 12px', color: C.text, fontSize: 13, outline: 'none' }}
         />
         <span style={{ color: C.sub, fontSize: 13, whiteSpace: 'nowrap' }}>{displayed.length} записей</span>
+        <button
+          onClick={handleExportCSV}
+          title="Скачать как CSV (Excel)"
+          style={{
+            background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8,
+            padding: '8px 12px', color: C.sub, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+        >
+          📥 CSV
+        </button>
       </div>
 
       {/* Таблица */}
