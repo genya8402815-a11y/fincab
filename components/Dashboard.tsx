@@ -5,7 +5,7 @@ import { useJournal } from '@/lib/useJournal';
 
 interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; }
 interface Goal     { name: string; saved: string; need: string; left: string; percent: string; }
-interface Debt     { name: string; initial: string; paid: string; left: string; }
+interface Debt     { name: string; initial: string; paid: string; left: string; day?: string; monthly?: string; }
 interface Regular  { rowIndex: number; name: string; day: string; amount: string; category: string; paid: boolean; }
 
 function n(v?: string) { return parseFloat(String(v ?? '0').replace(/\s/g, '').replace(',', '.').replace('₽','')) || 0; }
@@ -81,7 +81,11 @@ export default function Dashboard() {
 
   const totalRegulars = regulars.reduce((s, r) => s + n(r.amount), 0);
   const salary = n(dash.salary);
-  const dti = salary > 0 ? Math.round((totalRegulars / salary) * 100) : 0;
+  // DTI = сумма ежемесячных платежей по ДОЛГАМ (Долги!G, только непогашенные) / зарплата.
+  // Раньше здесь ошибочно использовались totalRegulars (подписки/регулярные платежи) —
+  // это другая метрика, к долговой нагрузке отношения не имеющая.
+  const totalDebtPayments = debts.filter(d => n(d.left) > 0).reduce((s, d) => s + n(d.monthly), 0);
+  const dti = salary > 0 ? Math.round((totalDebtPayments / salary) * 100) : 0;
   const dtiColor = dti <= 20 ? C.green : dti <= 35 ? C.yellow : dti <= 50 ? C.orange : C.red;
   const dtiLabel = dti <= 20 ? 'отлично' : dti <= 35 ? 'умеренно' : dti <= 50 ? 'высокая' : '⚠️ опасно';
 
