@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useJournal } from '@/lib/useJournal';
 
 interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; }
 interface Goal     { name: string; saved: string; need: string; left: string; percent: string; }
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const [unpaidAmt, setUnpaidAmt] = useState(0);
   const [loading,  setLoading]  = useState(true);
   const [toggling, setToggling] = useState<number | null>(null);
+  const { entries, loading: journalLoading } = useJournal();
 
   useEffect(() => {
     Promise.all([
@@ -73,6 +75,36 @@ export default function Dashboard() {
 
   if (loading || !dash) return <div style={{ color: C.sub, padding: 60, textAlign: 'center' }}>Загрузка…</div>;
 
+  // --- KPI computations ---
+  const freeAmt = n(dash.balance) - unpaidAmt;
+  const freeColor = freeAmt >= 0 ? C.orange : C.red;
+
+  const totalRegulars = regulars.reduce((s, r) => s + n(r.amount), 0);
+  const salary = n(dash.salary);
+  const dti = salary > 0 ? Math.round((totalRegulars / salary) * 100) : 0;
+  const dtiColor = dti <= 20 ? C.green : dti <= 35 ? C.yellow : dti <= 50 ? C.orange : C.red;
+  const dtiLabel = dti <= 20 ? 'отлично' : dti <= 35 ? 'умеренно' : dti <= 50 ? 'высокая' : '⚠️ опасно';
+
+  const nowDate = new Date();
+  const monthlyExp = new Map<string, number>();
+  entries.forEach(e => {
+    if (e.type !== 'Расход') return;
+    const p = e.date.split('.');
+    if (p.length < 3) return;
+    const yr = parseInt(p[2], 10), mo = parseInt(p[1], 10) - 1;
+    if (yr === nowDate.getFullYear() && mo === nowDate.getMonth()) return; // skip current month
+    const key = `${p[1]}.${p[2]}`;
+    monthlyExp.set(key, (monthlyExp.get(key) ?? 0) + n(e.amount));
+  });
+  const recentMonths = Array.from(monthlyExp.entries())
+    .sort((a, b) => b[0].localeCompare(a[0])).slice(0, 3);
+  const avgExpenses3m = recentMonths.length > 0
+    ? recentMonths.reduce((s, [, v]) => s + v, 0) / recentMonths.length : 0;
+  const coverage = avgExpenses3m > 0 ? n(dash.balance) / avgExpenses3m : 0;
+  const coverageColor = coverage >= 6 ? C.green : coverage >= 3 ? C.yellow : coverage >= 1 ? C.orange : C.red;
+  const coverageLabel = coverage >= 6 ? 'отлично' : coverage >= 3 ? 'норма' : coverage >= 1 ? 'маловато' : '⚠️ мало';
+  // -------------------------
+
   const GOAL_COLORS = [C.green, C.blue, C.yellow, C.orange, C.purple];
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
   const cardTitle = { fontSize: 12, fontWeight: 600 as const, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: '.5px', marginBottom: 16 };
@@ -83,26 +115,22 @@ export default function Dashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* KPI */}
-      {(() => {
-        const freeAmt = n(dash.balance) - unpaidAmt;
-        const freeColor = freeAmt >= 0 ? C.orange : C.red;
-        const totalRegulars = regulars.reduce((s, r) => s + n(r.amount), 0);
-        const salary = n(dash.salary);
-        const dti = salary > 0 ? Math.round((totalRegulars / salary) * 100) : 0;
-        const dtiColor = dti <= 20 ? C.green : dti <= 35 ? C.yellow : dti <= 50 ? C.orange : C.red;
-        const dtiLabel = dti <= 20 ? 'отлично' : dti <= 35 ? 'умеренно' : dti <= 50 ? 'высокая' : '⚠️ опасно';
-        return (
-          <div className="grid-6">
-            <KPI color={C.green}   icon="💵" label="Остаток на счёте"       value={fmt(dash.balance)} />
-            <KPI color={C.blue}    icon="📊" label="Зарплата (расчёт)"      value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
-            <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? '⚠️ Не хватает' : `неопл. ${fmt(unpaidAmt)}`} />
-            <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
-            <KPI color={C.yellow}  icon="🎯" label="Накопления"             value={fmt(dash.savings)} sub={`${goals.length} целей`} />
-            <KPI color={salary > 0 ? dtiColor : C.sub} icon="📉" label="Нагрузка / Доход" value={salary > 0 ? `${dti}%` : '—'} sub={salary > 0 ? dtiLabel : 'нет данных'} />
-          </div>
-        );
-      })()}
+      {/* KPI — row 1: Остаток, Зарплата, Свободно, Долг | row 2: Накопления, DTI, Подушка */}
+      <div className="grid-4">
+        <KPI color={C.green}   icon="💵" label="Остаток на счёте"       value={fmt(dash.balance)} />
+        <KPI color={C.blue}    icon="📊" label="Зарплата (расчёт)"      value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
+        <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? '⚠️ Не хватает' : `неопл. ${fmt(unpaidAmt)}`} />
+        <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${debts.length} долгов`} />
+        <KPI color={C.yellow}  icon="🎯" label="Накопления"             value={fmt(dash.savings)} sub={`${goals.length} целей`} />
+        <KPI color={salary > 0 ? dtiColor : C.sub} icon="📉" label="Нагрузка / Доход" value={salary > 0 ? `${dti}%` : '—'} sub={salary > 0 ? dtiLabel : 'нет данных'} />
+        <KPI
+          color={journalLoading ? C.sub : avgExpenses3m > 0 ? coverageColor : C.sub}
+          icon="🛡️"
+          label="Подушка (мес.)"
+          value={journalLoading ? '…' : avgExpenses3m > 0 ? coverage.toFixed(1) : '—'}
+          sub={journalLoading ? 'загрузка…' : avgExpenses3m > 0 ? `${coverageLabel} · ср. ${fmt(Math.round(avgExpenses3m))}/мес` : 'нет данных'}
+        />
+      </div>
 
       {/* Трекер + Долги + Регулярные */}
       <div className="grid-2-1">
