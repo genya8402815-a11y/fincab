@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { SHEET } from '@/lib/sheetRanges';
 
 const SPREADSHEET_ID = process.env.GOOGLE_SPREADSHEET_ID!;
 
@@ -56,14 +57,14 @@ export async function appendRow(range: string, values: string[]): Promise<void> 
 }
 
 export async function updateJournalRow(rowNumber: number, values: string[]): Promise<void> {
-  await writeRange(`💰 Журнал операций!B${rowNumber}:G${rowNumber}`, [values]);
+  await writeRange(`${SHEET.JOURNAL}!B${rowNumber}:G${rowNumber}`, [values]);
 }
 
 export async function deleteJournalRow(rowNumber: number): Promise<void> {
   const sheets = await getSheets();
   // Получаем числовой sheetId по имени листа
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-  const sheet = meta.data.sheets?.find(s => s.properties?.title === '💰 Журнал операций');
+  const sheet = meta.data.sheets?.find(s => s.properties?.title === SHEET.JOURNAL);
   const sheetId = sheet?.properties?.sheetId;
   if (sheetId === undefined) throw new Error('Sheet not found');
   await sheets.spreadsheets.batchUpdate({
@@ -89,7 +90,7 @@ export async function deleteJournalRow(rowNumber: number): Promise<void> {
  */
 export async function appendOperationRow(values: string[]): Promise<void> {
   const sheets = await getSheets();
-  const sheetName = '💰 Журнал операций';
+  const sheetName = SHEET.JOURNAL;
 
   // 1. Находим последнюю заполненную строку в колонке B (начиная с 5)
   const colRes = await sheets.spreadsheets.values.get({

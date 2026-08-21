@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server';
 import { readRange } from '@/lib/sheets';
+import { DASHBOARD, RANGES, cell } from '@/lib/sheetRanges';
 
 export async function GET() {
   try {
-    // Дашборд: C2 (месяц), E2 (год), B4 (остаток), E4 (ЗП), H4 (долг), K4 (накопления)
-    const header = await readRange('🏠 Дашборд!B2:K4');
-    const month  = header[0]?.[2] ?? '';   // D2 = "Июн"
-    const year   = header[0]?.[3] ?? '';   // E2 = "2026"
-    const balance     = header[2]?.[0] ?? '0'; // B4
-    const salary      = header[2]?.[3] ?? '0'; // E4
-    const debt        = header[2]?.[6] ?? '0'; // H4
-    const savings     = header[2]?.[9] ?? '0'; // K4
+    const header = await readRange(DASHBOARD.range);
+    const C = DASHBOARD.cells;
 
-    // Трекер темпа: B89:H97
-    const pace = await readRange('📊 Расчёт ЗП!B89:H97');
+    const pace = await readRange(RANGES.PACE_TRACKER);
 
-    return NextResponse.json({ month, year, balance, salary, debt, savings, pace });
+    return NextResponse.json({
+      month:   cell(header, C.MONTH,   ''),
+      year:    cell(header, C.YEAR,    ''),
+      balance: cell(header, C.BALANCE, '0'),
+      salary:  cell(header, C.SALARY,  '0'),
+      debt:    cell(header, C.DEBT,    '0'),
+      savings: cell(header, C.SAVINGS, '0'),
+      pace,
+    });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: 'Ошибка чтения дашборда' }, { status: 500 });
