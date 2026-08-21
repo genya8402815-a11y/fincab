@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifySessionToken } from '@/lib/session';
 
 // Пути без авторизации вообще
 const PUBLIC_PATHS = [
@@ -11,7 +12,7 @@ const PUBLIC_PATHS = [
   '/sw.js',
 ];
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Полностью публичные пути
@@ -19,8 +20,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const validPassword = process.env.BASIC_AUTH_PASSWORD;
-  const validApiKey   = process.env.API_KEY;
+  const validApiKey = process.env.API_KEY;
 
   // X-API-Key — для iOS Shortcuts и внешних клиентов
   if (validApiKey) {
@@ -28,13 +28,13 @@ export function middleware(request: NextRequest) {
     if (apiKey && apiKey === validApiKey) return NextResponse.next();
   }
 
-  // Cookie-аутентификация для браузера
-  const authCookie = request.cookies.get('fincab_auth');
-  if (authCookie?.value && validPassword && authCookie.value === validPassword) {
+  // Cookie-аутентификация — проверяем подписанный UUID-токен
+  const token = request.cookies.get('fincab_auth')?.value ?? '';
+  if (token && await verifySessionToken(token)) {
     return NextResponse.next();
   }
 
-  // API без авторизации → 401 JSON (не редирект, чтобы Shortcuts получал внятный ответ)
+  // API без авторизации → 401 JSON
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
