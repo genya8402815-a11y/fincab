@@ -7,6 +7,8 @@ import { invalidateJournalCache } from '@/lib/useJournal';
 const C = { blue: '#6c8ef7', green: '#4ade80', red: '#f87171', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27', surface2: '#222535', text: '#e2e8f0' };
 
 function toRuDate(iso: string) { if (!iso) return ''; const [y, m, d] = iso.split('-'); return `${d}.${m}.${y}`; }
+function n(v?: string) { return parseFloat(String(v ?? '0').replace(/\s/g, '').replace(',', '.').replace('₽', '')) || 0; }
+function fmt(v: number) { return Math.round(v).toLocaleString('ru-RU') + ' ₽'; }
 function todayIso() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -72,6 +74,7 @@ export default function AddRecord() {
   const [opGoal,    setOpGoal]   = useState('');
   const [debts,     setDebts]    = useState<string[]>([]);
   const [opDebt,    setOpDebt]   = useState('');
+  const [debtLeftByName, setDebtLeftByName] = useState<Record<string, number>>({});
 
   const showToast = (message: string, type: 'success' | 'error') => setToast({ message, type });
   const hideToast = useCallback(() => setToast({ message: '', type: '' }), []);
@@ -108,9 +111,11 @@ export default function AddRecord() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/debts').then(r => r.json()).then((d: { debts: { name: string }[] }) => {
-      const names = (d.debts ?? []).map(db => db.name).filter(Boolean);
+    fetch('/api/debts').then(r => r.json()).then((d: { debts: { name: string; left: string }[] }) => {
+      const list = d.debts ?? [];
+      const names = list.map(db => db.name).filter(Boolean);
       setDebts(names);
+      setDebtLeftByName(Object.fromEntries(list.map(db => [db.name, n(db.left)])));
       if (names.length > 0) setOpDebt(names[0]);
     }).catch(() => {});
   }, []);
@@ -126,12 +131,23 @@ export default function AddRecord() {
   }
 
   async function saveOp() {
+    const isSavings = isSavingsType(opType);
+    const isDebt    = isDebtType(opType);
+    const target    = isSavings ? opGoal : isDebt ? opDebt : '';
+
+    // Защита от переплаты долга: не блокируем (сумма может быть верной — например,
+    // досрочное погашение с запасом), но предупреждаем, если явно больше остатка.
+    if (isDebt && target && debtLeftByName[target] !== undefined) {
+      const left = debtLeftByName[target];
+      if (n(opAmt) > left) {
+        const proceed = confirm(`Остаток по долгу «${target}»: ${fmt(left)}.\nТы вводишь ${fmt(n(opAmt))} — это больше остатка.\n\nЗаписать всё равно?`);
+        if (!proceed) return;
+      }
+    }
+
     setOpSaving(true);
     try {
       const strippedType = opType.replace(/^[^\s]+ /, '');
-      const isSavings = isSavingsType(opType);
-      const isDebt    = isDebtType(opType);
-      const target    = isSavings ? opGoal : isDebt ? opDebt : '';
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           kind: 'operation',
