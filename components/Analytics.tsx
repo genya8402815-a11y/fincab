@@ -126,7 +126,12 @@ export default function Analytics() {
   const income  = byMonth.filter(e => e.type === 'Доход').reduce((s, e) => s + n(e.amount), 0);
   const expense = byMonth.filter(e => e.type === 'Расход').reduce((s, e) => s + n(e.amount), 0);
   const balance = income - expense;
-  const saveRate = income > 0 ? (balance / income * 100) : 0;
+  // ИСПРАВЛЕНИЕ (22.08.2026): раньше saveRate = (доход − расход) / доход — это
+  // "сколько от дохода не потрачено", а не реально отложенные деньги (остаток
+  // мог просто лежать на счету, а не быть переведён в накопления). Теперь считаем
+  // только настоящие переводы «В накопления» за месяц — честная норма сбережений.
+  const savedToGoals = byMonth.filter(e => e.type === 'В накопления').reduce((s, e) => s + n(e.amount), 0);
+  const saveRate = income > 0 ? (savedToGoals / income * 100) : 0;
 
   // Расходы по категориям
   const catMap = new Map<string, { amount: number; count: number }>();
@@ -195,7 +200,7 @@ export default function Analytics() {
           value={money(balance)} sub={balance >= 0 ? 'профицит' : 'дефицит'} />
         <KPI color={saveRate >= 0 ? C.green : C.red} icon="🏦" label="Норма сбережений"
           value={`${saveRate.toFixed(1)}%`}
-          sub={income > expense ? `${money(income - expense)} отложено` : 'больше расходов'} />
+          sub={savedToGoals > 0 ? `${money(savedToGoals)} в накопления` : 'ничего не отложено'} />
       </div>
 
       {/* Donut + таблица категорий */}
