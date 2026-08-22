@@ -1,30 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
 import { verifySessionToken } from '@/lib/session';
 
-// Rate limiting: 60 req/min per IP (per Edge instance) — общий лимит на все API
-const rlMap = new Map<string, { count: number; resetAt: number }>();
+// ИСПРАВЛЕНИЕ (22.08.2026): rate limit раньше жил в обычной переменной (Map) —
+// на Vercel Edge Runtime это ненадёжно: разные запросы могут попадать в разные
+// "холодные" инстансы функции, каждый со своей отдельной памятью, и счётчик
+// не всегда накапливался (подтверждено живым тестом — 7 неудачных попыток
+// логина подряд не показали ограничение). Теперь счётчик хранится в Upstash
+// Redis — общий для всех инстансов, настоящая гарантия лимита.
+//
+// Если переменные ещё не настроены в Vercel (Storage → Marketplace →
+// Upstash for Redis) — работаем в режиме "открыто": лимит не применяется,
+// но сайт не падает. То же самое — если Redis временно недоступен:
+// приоритет отдаём доступности сайта, а не строгости лимита.
+// (имена переменных — с префиксом UPSTASH_REDIS_REST_, так задано при
+// подключении интеграции в Vercel)
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
+
+const redis = REDIS_URL && REDIS_TOKEN
+  ? new Redis({ url: REDIS_URL, token: REDIS_TOKEN })
+  : null;
+
 const RL_MAX = 60;
-const RL_WINDOW = 60_000;
+const RL_WINDOW_S = 60;
 
-// Отдельный, строгий лимит именно на попытки логина — защита от подбора пароля.
-// Раньше /api/auth/ был в PUBLIC_PATHS и вообще не проверялся общим лимитом —
-// пароль можно было перебирать без каких-либо ограничений.
-const loginRlMap = new Map<string, { count: number; resetAt: number }>();
 const LOGIN_RL_MAX = 5;
-const LOGIN_RL_WINDOW = 60_000;
+const LOGIN_RL_WINDOW_S = 60;
 
-function checkRL(
-  map: Map<string, { count: number; resetAt: number }>,
-  ip: string,
-  max: number,
-  window: number,
-): boolean {
-  const now = Date.now();
-  const e = map.get(ip);
-  if (!e || now > e.resetAt) { map.set(ip, { count: 1, resetAt: now + window }); return true; }
-  if (e.count >= max) return false;
-  e.count++;
-  return true;
+async function checkRL(key: string, max: number, windowSeconds: number): Promise<boolean> {
+  if (!redis) return true; // Redis ещё не подключён — не блокируем
+  try {
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, windowSeconds);
+    return count <= max;
+  } catch {
+    return true; // сбой Redis — не роняем сайт из-за лимитера
+  }
 }
 
 // Пути без авторизации вообще
@@ -43,7 +55,7 @@ export async function middleware(request: NextRequest) {
 
   // Логин — публичный путь (пароля ещё нет), но со строгим лимитом попыток
   if (pathname.startsWith('/api/auth/')) {
-    if (!checkRL(loginRlMap, ip, LOGIN_RL_MAX, LOGIN_RL_WINDOW)) {
+    if (!(await checkRL(`rl:login:${ip}`, LOGIN_RL_MAX, LOGIN_RL_WINDOW_S))) {
       return NextResponse.json({ error: 'Слишком много попыток входа, попробуйте через минуту' }, { status: 429 });
     }
     return NextResponse.next();
@@ -56,7 +68,7 @@ export async function middleware(request: NextRequest) {
 
   // Rate limiting — только для остальных API-запросов
   if (pathname.startsWith('/api/')) {
-    if (!checkRL(rlMap, ip, RL_MAX, RL_WINDOW)) {
+    if (!(await checkRL(`rl:api:${ip}`, RL_MAX, RL_WINDOW_S))) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429 });
     }
   }
