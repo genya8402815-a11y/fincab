@@ -42,7 +42,8 @@ async function checkRL(key: string, max: number, windowSeconds: number): Promise
 // Пути без авторизации вообще
 const PUBLIC_PATHS = [
   '/login',
-  '/api/cron/',   // Vercel Cron — используют CRON_SECRET
+  '/api/cron/',           // Vercel Cron — используют CRON_SECRET
+  '/api/cache/version',   // дёргается из Apps Script (onEdit/бот), не из браузера — свой CRON_SECRET внутри роута
   '/_next/',
   '/favicon.ico',
   '/manifest.json',
