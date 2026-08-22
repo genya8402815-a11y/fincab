@@ -24,7 +24,8 @@ export default function LoginPage() {
       router.push('/');
       router.refresh();
     } else {
-      setError('Неверный пароль');
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || 'Неверный пароль');
       setLoading(false);
     }
   }
