@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { appendOperationRow, appendShiftRow } from '@/lib/sheets';
+import { appendOperationRow, appendShiftRow, markRegularPaidByCategory } from '@/lib/sheets';
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +31,14 @@ export async function POST(req: NextRequest) {
       // Накопленное по цели считается формулой прямо в листе 🎯 Цели
       // (SUMIFS по журналу) — работает одинаково для сайта, бота и ручных правок,
       // пересчитывать и перезаписывать её отсюда не нужно.
+
+      // ДОБАВЛЕНО (22.08.2026): если это Расход с категорией, совпадающей с
+      // категорией регулярного платежа (аренда, связь и т.п.) — автоматически
+      // ставим галочку "Оплачено" в 🔁 Регулярные, чтобы не отмечать вручную.
+      if (type === 'Расход' && category) {
+        try { await markRegularPaidByCategory(category); }
+        catch (e) { console.warn('markRegularPaidByCategory:', e); }
+      }
 
       return NextResponse.json({ ok: true });
     }

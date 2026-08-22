@@ -109,6 +109,30 @@ export async function writeRange(range: string, values: string[][]): Promise<voi
   });
 }
 
+/**
+ * Если категория записанного «Расхода» совпадает с колонкой «Категория» (E)
+ * какой-то строки в 🔁 Регулярные — автоматически ставим галочку «Оплачено» (F)
+ * для этой строки. Экономит ручной клик: раз трата уже записана в Журнал,
+ * значит платёж точно ушёл, незачем отдельно заходить в Регулярные и щёлкать
+ * чекбокс. Матчит только первую НЕоплаченную строку с таким же названием
+ * категории (без учёта регистра/пробелов) — если совпадений несколько,
+ * остальные не трогаем, чтобы не потерять историю прошлых месяцев.
+ */
+export async function markRegularPaidByCategory(category: string): Promise<boolean> {
+  const cat = category.trim().toLowerCase();
+  if (!cat) return false;
+  const rows = await readRange(`${SHEET.REGULARS}!B6:F20`);
+  for (let i = 0; i < rows.length; i++) {
+    const rowCategory = String(rows[i]?.[3] ?? '').trim().toLowerCase();
+    const paid = String(rows[i]?.[4] ?? '').toUpperCase() === 'TRUE';
+    if (rowCategory && rowCategory === cat && !paid) {
+      await writeRangeRaw(`${SHEET.REGULARS}!F${6 + i}`, [[true]]);
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function appendRow(range: string, values: string[]): Promise<void> {
   const sheets = await getSheets();
   await sheets.spreadsheets.values.append({
