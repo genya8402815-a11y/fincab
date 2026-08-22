@@ -110,10 +110,18 @@ export default function Budget() {
   // Объединяем: категории из расходов + категории с бюджетом
   const allCats = Array.from(new Set([...catActual.keys(), ...Object.keys(budgets)])).sort();
 
-  const totalActual   = Array.from(catActual.values()).reduce((s, v) => s + v, 0);
+  // ИСПРАВЛЕНИЕ (22.08.2026): totalActual раньше суммировал ВСЕ расходы, включая
+  // категории без заданного лимита, а totalBudget — только категории С лимитом.
+  // "Остаток" сравнивал две разные выборки трат, из-за чего мог показывать
+  // перерасход/остаток, не соответствующий факту по бюджетируемым категориям.
+  // Для "Остатка" теперь считаем факт ТОЛЬКО по категориям с заданным лимитом —
+  // честное план vs факт. totalActual (все траты периода) оставляем отдельно —
+  // это по-прежнему полезная цифра для карточки "Потрачено".
+  const totalActual         = Array.from(catActual.values()).reduce((s, v) => s + v, 0);
+  const totalActualBudgeted = Object.keys(budgets).reduce((s, cat) => s + (catActual.get(cat) ?? 0), 0);
   const totalBudget   = Object.values(budgets).reduce((s, v) => s + v, 0);
   const overCount     = allCats.filter(c => budgets[c] && (catActual.get(c) ?? 0) > budgets[c]).length;
-  const remaining     = totalBudget - totalActual;
+  const remaining     = totalBudget - totalActualBudgeted;
 
   const card: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
 

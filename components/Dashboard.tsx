@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [debts,    setDebts]    = useState<Debt[]>([]);
   const [regulars, setRegulars] = useState<Regular[]>([]);
   const [unpaidAmt, setUnpaidAmt] = useState(0);
+  const [budgets,  setBudgets]  = useState<Record<string, number>>({});
   const [loading,  setLoading]  = useState(true);
   const [toggling, setToggling] = useState<number | null>(null);
   const { entries, loading: journalLoading } = useJournal();
@@ -48,12 +49,14 @@ export default function Dashboard() {
       fetch('/api/goals').then(r => r.json()),
       fetch('/api/debts').then(r => r.json()),
       fetch('/api/regulars').then(r => r.json()),
-    ]).then(([d, g, db, reg]) => {
+      fetch('/api/budget').then(r => r.json()),
+    ]).then(([d, g, db, reg, bud]) => {
       setDash(d);
       setGoals(g.goals ?? []);
       setDebts(db.debts ?? []);
       setRegulars(reg.items ?? []);
       setUnpaidAmt(reg.unpaidAmt ?? 0);
+      setBudgets(bud.budgets ?? {});
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -146,6 +149,23 @@ export default function Dashboard() {
     : forecastRatio < 0.1 ? 'мало' : forecastRatio < 0.2 ? 'маловато' : 'хороший запас';
   // -------------------------
 
+  // Отклонение от бюджета (P3 #31): сравниваем факт этого месяца с планом ТОЛЬКО
+  // по категориям, где задан лимит на странице «Бюджет» — так же честно, как
+  // теперь считает и сама страница «Бюджет» (см. правку в Budget.tsx). Категории
+  // без лимита в это сравнение не попадают — по ним не с чем сравнивать факт.
+  const budgetCats = Object.keys(budgets);
+  const totalBudgetSet = Object.values(budgets).reduce((s, v) => s + v, 0);
+  const budgetActualByCat = new Map<string, number>();
+  monthExpenseEntries.forEach(e => {
+    const cat = e.category || 'Прочее';
+    if (budgetCats.includes(cat)) budgetActualByCat.set(cat, (budgetActualByCat.get(cat) ?? 0) + n(e.amount));
+  });
+  const budgetActualSet = Array.from(budgetActualByCat.values()).reduce((s, v) => s + v, 0);
+  const budgetDeviation = totalBudgetSet > 0 ? budgetActualSet - totalBudgetSet : 0;
+  const budgetPct       = totalBudgetSet > 0 ? Math.round((budgetActualSet / totalBudgetSet) * 100) : 0;
+  const budgetColor     = totalBudgetSet === 0 ? C.sub : budgetDeviation > 0 ? C.red : C.green;
+  // -------------------------
+
   const GOAL_COLORS = [C.green, C.blue, C.yellow, C.orange, C.purple];
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
   const cardTitle = { fontSize: 12, fontWeight: 600 as const, color: C.sub, textTransform: 'uppercase' as const, letterSpacing: '.5px', marginBottom: 16 };
@@ -181,6 +201,15 @@ export default function Dashboard() {
           label="Прогноз к концу мес."
           value={journalLoading ? '…' : curMonthExp > 0 ? fmt(Math.round(forecastBalance)) : '—'}
           sub={journalLoading ? 'загрузка…' : curMonthExp > 0 ? `${forecastLabel} · темп ${fmt(Math.round(dailyRate))}/день` : 'нет расходов'}
+        />
+        <KPI
+          color={budgetColor}
+          icon="📋"
+          label="Отклонение от бюджета"
+          value={journalLoading ? '…' : totalBudgetSet > 0 ? fmt(Math.abs(budgetDeviation)) : 'Не задан'}
+          sub={journalLoading ? 'загрузка…' : totalBudgetSet > 0
+            ? (budgetDeviation > 0 ? `⚠️ перерасход · ${budgetPct}%` : `в рамках бюджета · ${budgetPct}%`)
+            : 'задай лимиты на странице «Бюджет»'}
         />
       </div>
 
