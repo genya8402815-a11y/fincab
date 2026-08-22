@@ -114,6 +114,35 @@ export default function Analytics() {
     }
   }, [loading, entries]);
 
+  // ДОБАВЛЕНО (22.08.2026, P3 #30) — Burn Rate: постоянные vs переменные траты.
+  // "Постоянные" — это то, что уходит без выбора в этом месяце: сумма всех
+  // регулярных платежей + месячные платежи по долгам (та же цифра, что и в
+  // DTI-карточке на дашборде, — чтобы не считать одно и то же дважды разными
+  // способами). Это "живая" цифра текущих обязательств, а не за выбранный
+  // период — регулярные платежи и долги не хранят историю по месяцам.
+  // "Переменные" — фактические траты за выбранный период по категориям,
+  // НЕ помеченным как "Фикс" в листе «⚙ Категории» (столбец E) — то, чем
+  // реально можно управлять день ото дня.
+  const [expenseTypes, setExpenseTypes] = useState<Record<string, 'fixed' | 'variable'>>({});
+  const [fixedBurn, setFixedBurn] = useState(0);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [catsRes, regRes, debtsRes] = await Promise.all([
+          fetch('/api/categories').then(r => r.json()),
+          fetch('/api/regulars').then(r => r.json()),
+          fetch('/api/debts').then(r => r.json()),
+        ]);
+        setExpenseTypes(catsRes.expenseTypes || {});
+        const regularsTotal = n(String(regRes?.total ?? 0));
+        const debtsMonthly = (debtsRes?.debts || [])
+          .filter((d: { left: string }) => n(d.left) > 0)
+          .reduce((s: number, d: { monthly: string }) => s + n(d.monthly), 0);
+        setFixedBurn(regularsTotal + debtsMonthly);
+      } catch { /* нет доступа к листам — оставляем 0, карточка просто не покажет ничего критичного */ }
+    })();
+  }, []);
+
   if (loading) return <div style={{ color: C.sub, padding: 60, textAlign: 'center' }}>Загрузка…</div>;
   if (error)   return <div style={{ color: C.red, padding: 24 }}>{error}</div>;
 
@@ -132,6 +161,24 @@ export default function Analytics() {
   // только настоящие переводы «В накопления» за месяц — честная норма сбережений.
   const savedToGoals = byMonth.filter(e => e.type === 'В накопления').reduce((s, e) => s + n(e.amount), 0);
   const saveRate = income > 0 ? (savedToGoals / income * 100) : 0;
+
+  // Burn Rate (P3 #30): переменные траты за выбранный период — расходы по
+  // категориям, не помеченным «Фикс» (не тегированная категория = переменная,
+  // безопасный дефолт). Долги/регулярные сюда не входят — они уже в fixedBurn.
+  const variableBurn = byMonth
+    .filter(e => e.type === 'Расход' && expenseTypes[e.category || 'Прочее'] !== 'fixed')
+    .reduce((s, e) => s + n(e.amount), 0);
+  let variableBurnSub: string;
+  if (selMonth) {
+    const [mm, yyyy] = selMonth.split('.').map(Number);
+    const now = new Date();
+    const isCurrentMonth = now.getMonth() + 1 === mm && now.getFullYear() === yyyy;
+    const totalDays = new Date(yyyy, mm, 0).getDate();
+    const elapsedDays = isCurrentMonth ? now.getDate() : totalDays;
+    variableBurnSub = elapsedDays > 0 ? `≈ ${money(variableBurn / elapsedDays)}/день` : 'за месяц';
+  } else {
+    variableBurnSub = 'за всё время';
+  }
 
   // Расходы по категориям
   const catMap = new Map<string, { amount: number; count: number }>();
@@ -201,6 +248,12 @@ export default function Analytics() {
         <KPI color={saveRate >= 0 ? C.green : C.red} icon="🏦" label="Норма сбережений"
           value={`${saveRate.toFixed(1)}%`}
           sub={savedToGoals > 0 ? `${money(savedToGoals)} в накопления` : 'ничего не отложено'} />
+        <KPI color={C.yellow} icon="🔒" label="Постоянные траты"
+          value={money(fixedBurn)}
+          sub="регулярные + долги, в месяц" />
+        <KPI color="#fb923c" icon="🎲" label="Переменные траты"
+          value={money(variableBurn)}
+          sub={variableBurnSub} />
       </div>
 
       {/* Donut + таблица категорий */}
@@ -231,6 +284,7 @@ export default function Analytics() {
                   <th style={thS}>Сумма</th>
                   <th style={thS}>%</th>
                   <th style={thS}>Раз</th>
+                  <th style={thS}>Средний чек</th>
                   {prevKey && <th style={thS}>vs пред. мес.</th>}
                 </tr>
               </thead>
@@ -255,6 +309,7 @@ export default function Analytics() {
                       </td>
                       <td style={{ padding: '10px 8px', textAlign: 'right', color: C.sub, borderBottom: border }}>{cat.pct.toFixed(1)}%</td>
                       <td style={{ padding: '10px 8px', textAlign: 'right', color: C.sub, borderBottom: border }}>{cat.count}×</td>
+                      <td style={{ padding: '10px 8px', textAlign: 'right', color: C.sub, borderBottom: border }}>{money(cat.amount / cat.count)}</td>
                       {prevKey && (
                         <td style={{ padding: '10px 8px', textAlign: 'right', borderBottom: border }}>
                           <Delta cur={cat.amount} prev={prev} />
