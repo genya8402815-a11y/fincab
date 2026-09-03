@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
     console.log('📥 /api/add body:', JSON.stringify(body));
     const { kind } = body;
 
-    const VALID_TYPES = ['Расход', 'Доход', 'В накопления', 'Из накоплений', 'Платёж по долгу'];
+    // ДОБАВЛЕНО (P0 #45): «Корректировка баланса» — ручная подгонка остатка под
+    // факт (сверка со счётом), а не реальная операция дохода/расхода.
+    const VALID_TYPES = ['Расход', 'Доход', 'В накопления', 'Из накоплений', 'Платёж по долгу', 'Корректировка баланса'];
 
     if (kind === 'operation') {
       const { date, type, amount, category, target, description } = body;
@@ -46,8 +48,12 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Неверный тип операции' }, { status: 400 });
       }
       const numAmount = parseFloat(String(amount).replace(',', '.'));
-      if (isNaN(numAmount) || numAmount <= 0) {
-        return NextResponse.json({ error: 'Сумма должна быть больше 0' }, { status: 400 });
+      // «Корректировка баланса» (P0 #45) — единственный тип, где сумма может быть
+      // отрицательной (баланс подгоняется и вверх, и вниз); знак сохраняется в
+      // журнале как есть и учитывается формулой ОстатокСчёта напрямую.
+      const isAdjustment = type === 'Корректировка баланса';
+      if (isNaN(numAmount) || numAmount === 0 || (!isAdjustment && numAmount <= 0)) {
+        return NextResponse.json({ error: isAdjustment ? 'Сумма не может быть нулевой' : 'Сумма должна быть больше 0' }, { status: 400 });
       }
       if (!/^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
         return NextResponse.json({ error: 'Дата должна быть в формате ДД.ММ.ГГГГ' }, { status: 400 });

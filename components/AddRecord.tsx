@@ -14,7 +14,7 @@ function todayIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const TYPES = ['🛒 Расход', '💵 Доход', '🏦 В накопления', '↩️ Из накоплений', '💳 Платёж по долгу'];
+const TYPES = ['🛒 Расход', '💵 Доход', '🏦 В накопления', '↩️ Из накоплений', '💳 Платёж по долгу', '⚖️ Корректировка баланса'];
 
 type CatType = 'expense' | 'income' | 'debt' | 'savings';
 type CatsMap = Record<CatType, string[]>;
@@ -45,6 +45,12 @@ function isSavingsType(opType: string): boolean {
 }
 function isDebtType(opType: string): boolean {
   return opType.includes('долгу');
+}
+// ДОБАВЛЕНО (P0 #45): «Корректировка баланса» — ручная подгонка остатка под
+// факт (например, после сверки со счётом), а не реальный доход/расход.
+// Категория и цель/долг для неё не нужны — только сумма и описание.
+function isAdjustmentType(opType: string): boolean {
+  return opType.includes('Корректировка');
 }
 
 const card: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
@@ -154,7 +160,7 @@ export default function AddRecord() {
           date: toRuDate(opDate),
           type: strippedType,
           amount: opAmt,
-          category: opCat,
+          category: isAdjustmentType(opType) ? '' : opCat,
           target,
           description: opDesc,
         }) });
@@ -253,11 +259,13 @@ export default function AddRecord() {
             <Field label="Сумма (₽)">
               <input style={inputS} type="number" placeholder="0" value={opAmt} onChange={e => setOpAmt(e.target.value)} />
             </Field>
-            <Field label="Категория">
-              <select style={inputS} value={opCat} onChange={e => setOpCat(e.target.value)} disabled={!catsReady}>
-                {activeCats.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </Field>
+            {!isAdjustmentType(opType) && (
+              <Field label="Категория">
+                <select style={inputS} value={opCat} onChange={e => setOpCat(e.target.value)} disabled={!catsReady}>
+                  {activeCats.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </Field>
+            )}
             {isSavingsType(opType) && (
               <div style={{ gridColumn: '1/-1' }}>
                 <Field label="🎯 Цель накоплений">

@@ -25,25 +25,29 @@ interface EditForm {
 const C = {
   green: '#4ade80', red: '#f87171', blue: '#6c8ef7', yellow: '#fbbf24',
   purple: '#c084fc', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27',
-  surface2: '#222535', text: '#e2e8f0',
+  surface2: '#222535', text: '#e2e8f0', gray: '#94a3b8',
 };
 
-const TYPES = ['Расход', 'Доход', 'В накопления', 'Из накоплений', 'Платёж по долгу'];
+// ДОБАВЛЕНО (P0 #45): «Корректировка баланса» — ручная подгонка остатка под
+// факт, не реальный доход/расход. Свой цвет/знак и без категории.
+const TYPES = ['Расход', 'Доход', 'В накопления', 'Из накоплений', 'Платёж по долгу', 'Корректировка баланса'];
 
 const TYPE_COLOR: Record<string, string> = {
-  'Расход':           C.red,
-  'Доход':            C.green,
-  'В накопления':     C.blue,
-  'Из накоплений':    C.yellow,
-  'Платёж по долгу':  C.purple,
+  'Расход':               C.red,
+  'Доход':                C.green,
+  'В накопления':         C.blue,
+  'Из накоплений':        C.yellow,
+  'Платёж по долгу':      C.purple,
+  'Корректировка баланса': C.gray,
 };
 
 const TYPE_SIGN: Record<string, string> = {
-  'Расход':           '−',
-  'Доход':            '+',
-  'В накопления':     '→',
-  'Из накоплений':    '←',
-  'Платёж по долгу':  '↓',
+  'Расход':               '−',
+  'Доход':                '+',
+  'В накопления':         '→',
+  'Из накоплений':        '←',
+  'Платёж по долгу':      '↓',
+  'Корректировка баланса': '±',
 };
 
 const RU_MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
@@ -139,10 +143,14 @@ export default function Journal() {
     setSaving(true);
     setSaveError('');
     try {
+      // «Корректировка баланса» (P0 #45) не имеет категории/цели — если поле
+      // Категория ещё хранит значение от предыдущего типа операции, не отправляем его.
+      const isAdjustment = editEntry.form.type.includes('Корректировка');
+      const payload = isAdjustment ? { ...editEntry.form, category: '', target: '' } : editEntry.form;
       const res = await fetch(`/api/journal/${editEntry.rowIndex}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editEntry.form),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error('Ошибка сервера');
       setEditEntry(null);
@@ -429,30 +437,32 @@ export default function Journal() {
               />
             </div>
 
-            {/* Категория */}
-            <div>
-              <label style={{ fontSize: 12, color: C.sub, display: 'block', marginBottom: 6 }}>Категория</label>
-              {(() => {
-                const t = editEntry.form.type;
-                const catKey = t === 'Доход' ? 'income' : t.includes('накопления') ? 'savings' : t.includes('долгу') ? 'debt' : 'expense';
-                const list = cats[catKey] ?? [];
-                return list.length > 0 ? (
-                  <select
-                    value={editEntry.form.category}
-                    onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
-                    style={inputSt}
-                  >
-                    {list.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    value={editEntry.form.category}
-                    onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
-                    style={inputSt}
-                  />
-                );
-              })()}
-            </div>
+            {/* Категория — скрыта для «Корректировка баланса» (P0 #45): у неё нет категории */}
+            {!editEntry.form.type.includes('Корректировка') && (
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, display: 'block', marginBottom: 6 }}>Категория</label>
+                {(() => {
+                  const t = editEntry.form.type;
+                  const catKey = t === 'Доход' ? 'income' : t.includes('накопления') ? 'savings' : t.includes('долгу') ? 'debt' : 'expense';
+                  const list = cats[catKey] ?? [];
+                  return list.length > 0 ? (
+                    <select
+                      value={editEntry.form.category}
+                      onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
+                      style={inputSt}
+                    >
+                      {list.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      value={editEntry.form.category}
+                      onChange={ev => setEditEntry(p => p && { ...p, form: { ...p.form, category: ev.target.value } })}
+                      style={inputSt}
+                    />
+                  );
+                })()}
+              </div>
+            )}
 
             {/* Цель / Долг */}
             {(() => {
