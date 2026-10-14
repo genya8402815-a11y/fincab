@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 interface SalaryData { scheduled: string; worked: string; remaining: string; pace: string[][]; }
-interface Shift { date: string; phones: string; accessories: string; tech: string; services: string; salary: string; }
+interface Shift { date: string; phones: string; iphone: string; android: string; accessories: string; tech: string; services: string; salary: string; }
 
 const C = {
   green: '#4ade80', blue: '#6c8ef7', yellow: '#fbbf24', orange: '#fb923c',
@@ -67,7 +67,11 @@ export default function Shifts() {
   const monthLabel  = selMonth ? (months.find(([k]) => k === selMonth)?.[1] ?? '') : 'всё время';
 
   const totalSal    = filtered.reduce((s, r) => s + n(r.salary), 0);
-  const totalPhones = filtered.reduce((s, r) => s + n(r.phones), 0);
+  const totalIphone  = filtered.reduce((s, r) => s + n(r.iphone), 0);
+  const totalAndroid = filtered.reduce((s, r) => s + n(r.android), 0);
+  // Легаси: старые смены без разбивки (только колонка C)
+  const totalLegacy  = filtered.reduce((s, r) => s + (n(r.iphone) + n(r.android) === 0 ? n(r.phones) : 0), 0);
+  const totalPhones  = totalIphone + totalAndroid + totalLegacy;
   const totalAcc    = filtered.reduce((s, r) => s + n(r.accessories), 0);
   const totalTech   = filtered.reduce((s, r) => s + n(r.tech), 0);
   const totalSvc    = filtered.reduce((s, r) => s + n(r.services), 0);
@@ -104,8 +108,8 @@ export default function Shifts() {
       <div className="grid-4">
         <KPI color={C.green}  icon="✅" label="Отработано"   value={`${filtered.length} смен`} />
         <KPI color={C.blue}   icon="📅" label="По графику"   value={`${sal.scheduled} смен`}   sub={`осталось ${sal.remaining}`} />
-        <KPI color={C.green}  icon="💵" label="Итого ЗП"     value={money(totalSal)}            sub={`ср. ${filtered.length > 0 ? money(Math.round(totalSal / filtered.length)) : '—'}/смена`} />
-        <KPI color={C.yellow} icon="📱" label="Телефонов"    value={`${totalPhones} шт`} />
+        <KPI color={C.green}  icon="💵" label="База по сменам" value={money(totalSal)}            sub={`ср. ${filtered.length > 0 ? money(Math.round(totalSal / filtered.length)) : '—'}/смена`} />
+        <KPI color={C.yellow} icon="📱" label="Телефонов"    value={`${totalPhones} шт`} sub={`🍏 ${totalIphone} · 🤖 ${totalAndroid}${totalLegacy > 0 ? ` · старых без разбивки ${totalLegacy}` : ''}`} />
       </div>
 
       {/* KPI: показатели продаж */}
@@ -166,7 +170,7 @@ export default function Shifts() {
             </div>
           </div>
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>Итого ЗП за период</div>
+            <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>База по сменам за период (без надбавок)</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: C.green }}>{money(totalSal)}</div>
           </div>
         </div>
@@ -182,7 +186,8 @@ export default function Shifts() {
             <thead>
               <tr>
                 <th style={th()}>Дата</th>
-                <th style={th()}>Телефоны</th>
+                <th style={th(true)}>iPhone</th>
+                <th style={th(true)}>Android</th>
                 <th style={th(true)}>Аксессуары</th>
                 <th style={th(true)}>Техника</th>
                 <th style={th(true)}>Услуги</th>
@@ -193,7 +198,14 @@ export default function Shifts() {
               {[...filtered].reverse().map((s, i, arr) => (
                 <tr key={i}>
                   <td style={{ ...td(), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{s.date}</td>
-                  <td style={{ ...td(), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{s.phones || '—'}</td>
+                  {n(s.iphone) + n(s.android) === 0 && n(s.phones) > 0 ? (
+                    <td colSpan={2} style={{ ...td(true), color: C.sub, ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{n(s.phones)} шт (без разбивки)</td>
+                  ) : (
+                    <>
+                      <td style={{ ...td(true), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{n(s.iphone) || '—'}</td>
+                      <td style={{ ...td(true), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{n(s.android) || '—'}</td>
+                    </>
+                  )}
                   <td style={{ ...td(true), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{moneyS(s.accessories)}</td>
                   <td style={{ ...td(true), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{moneyS(s.tech)}</td>
                   <td style={{ ...td(true), ...(i === arr.length - 1 ? { borderBottom: 'none' } : {}) }}>{moneyS(s.services)}</td>
@@ -201,7 +213,7 @@ export default function Shifts() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: C.sub }}>Нет данных за этот период</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 40, color: C.sub }}>Нет данных за этот период</td></tr>
               )}
             </tbody>
           </table>

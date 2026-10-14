@@ -4,12 +4,15 @@ import { readRange } from '@/lib/sheets';
 export async function GET() {
   try {
     // Смены: строки с 5, B(дата) C(телефоны) D(аксессуары) E(техника) F(услуги) G(ЗП)
-    const rows = await readRange('📅 Смены!B5:G200');
+    // J = iPhone (шт.), K = Android (шт.) — P1 #75; C (phones) — легаси, только старые смены
+    const rows = await readRange('📅 Смены!B5:K200');
     const shifts = rows
       .filter(r => r[0])
       .map(r => ({
         date:        r[0] ?? '',
         phones:      r[1] ?? '0',
+        iphone:      r[8] ?? '0',
+        android:     r[9] ?? '0',
         accessories: r[2] ?? '0',
         tech:        r[3] ?? '0',
         services:    r[4] ?? '0',
