@@ -69,8 +69,10 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Сумма — ЧИСЛОМ: строка "104199.72" в таблице с русской локалью
+      // (десятичная запятая) записывается как текст, и SUMIF её не видит.
       await appendOperationRow([
-        date, type, amount, category ?? '', target ?? '', description ?? '',
+        date, type, numAmount, category ?? '', target ?? '', description ?? '',
       ]);
 
       // Накопленное по цели считается формулой прямо в листе 🎯 Цели
@@ -89,13 +91,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (kind === 'shift') {
-      const { date, phones, accessories, tech, services } = body;
+      // ДОБАВЛЕНО (P1 #75): «Телефоны» разделены на iPhone/Android — новые записи
+      // шлют iphone/android отдельно; phones оставлен для обратной совместимости
+      // (старый Shortcut/клиент, ещё не обновлённый) и пишется в легаси-колонку.
+      const { date, phones, accessories, tech, services, iphone, android } = body;
       if (!date) {
         return NextResponse.json({ error: 'Укажите дату смены' }, { status: 400 });
       }
 
       const shiftFingerprint = createHash('sha256')
-        .update(`shift:${date}:${phones ?? ''}:${accessories ?? ''}:${tech ?? ''}:${services ?? ''}`)
+        .update(`shift:${date}:${phones ?? ''}:${accessories ?? ''}:${tech ?? ''}:${services ?? ''}:${iphone ?? ''}:${android ?? ''}`)
         .digest('hex');
       if (await isDuplicate(shiftFingerprint)) {
         return NextResponse.json(
@@ -104,7 +109,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Пишем только B:F, затем автоматически копируем формулы (ЗП, месяц, год) из предыдущей строки
+      // Пишем B:F + J:K, затем автоматически копируем формулы (ЗП, месяц, год) из предыдущей строки
       await appendShiftRow(
         '📅 Смены',
         'B5:F5',
@@ -114,6 +119,8 @@ export async function POST(req: NextRequest) {
           accessories ?? '0',
           tech        ?? '0',
           services    ?? '0',
+          iphone      ?? '0',
+          android     ?? '0',
         ],
       );
       return NextResponse.json({ ok: true });

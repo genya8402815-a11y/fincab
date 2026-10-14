@@ -245,17 +245,22 @@ sh.getRange(row,8,1,2).setFormulas([[
   '=IF(B'+row+'="","",YEAR(B'+row+'))'
 ]]);
 }
-function appendShift(date,phones,acc,tech,serv){
+function appendShift(date,iphone,android,acc,tech,serv){
 var sh=SpreadsheetApp.getActive().getSheetByName(SHEET_SHIFTS);
 var col=sh.getRange('B5:B1500').getValues(); var row=5;
 for(var i=0;i<col.length;i++){ if(!col[i][0]){ row=5+i; break; } }
-sh.getRange(row,2,1,5).setValues([[date,phones,acc,tech,serv]]);
+// ИЗМЕНЕНО (P1 #75): «Телефоны» разделены на iPhone/Android — легаси-колонка C
+// (общее число, использовалась для старых смен) для новых записей больше не
+// заполняется (пишем 0), реальные данные — в J (iPhone) и K (Android).
+sh.getRange(row,2,1,5).setValues([[date,0,acc,tech,serv]]);
+sh.getRange(row,10,1,2).setValues([[iphone,android]]); // J:K
 // ИСПРАВЛЕНИЕ (22.08.2026): ЗП за смену (G) + Месяц/Год (H:I) — те же формулы,
 // что и в остальных строках. Без G смена не считается "заполненной" в счётчике
 // Расчёт ЗП!E19 (там условие G<>""). Без H:I смена не попадает в помесячный
-// расчёт зарплаты вообще.
+// расчёт зарплаты вообще. G теперь также учитывает J/K по базовой ставке —
+// это только грубая оценка «на глаз», реальный тир считается в Расчёте ЗП.
 sh.getRange(row,7,1,3).setFormulas([[
-  '=N(C'+row+')*Ст_ТелБез+N(D'+row+')*Ст_АксМин+N(E'+row+')*Ст_ТехМин+N(F'+row+')*Ст_Услуги',
+  '=N(C'+row+')*Ст_ТелБез+N(J'+row+')*Ст_ТелБез+N(K'+row+')*Ст_ТелБез+N(D'+row+')*Ст_АксМин+N(E'+row+')*Ст_ТехМин+N(F'+row+')*Ст_Услуги',
   '=IF(B'+row+'="","",MONTH(B'+row+'))',
   '=IF(B'+row+'="","",YEAR(B'+row+'))'
 ]]);
@@ -417,7 +422,7 @@ else if(st.type==='Из накоплений'||st.type==='В накоплени�
 else if(st.type==='Платёж по долгу'){ st.step='dest'; setState(chatId,st); sendMessage(chatId,'Выберите долг:',listMenu(getDebts())); }
 // ДОБАВЛЕНО (P0 #45): у «Корректировки баланса» нет категории/цели — сразу к сумме.
 else if(st.type==='Корректировка баланса'){ st.step='amount'; setState(chatId,st); sendMessage(chatId,'💰 На сколько скорректировать баланс? Введите сумму (₽); если баланс нужно уменьшить — со знаком «-»:',{remove_keyboard:true}); }
-      } else if(st.flow==='shift'){ st.step='phones'; setState(chatId,st); sendMessage(chatId,'📱 Сколько телефонов? (число)',skipMenu()); }
+      } else if(st.flow==='shift'){ st.step='iphone'; setState(chatId,st); sendMessage(chatId,'🍏 Сколько iPhone? (число)',skipMenu()); }
 return done_();
     }
 if(st.step==='date_input'){
@@ -429,7 +434,7 @@ if(st.type==='Расход'||st.type==='Доход'){ st.step='cat'; setState(ch
 else if(st.type==='Из накоплений'||st.type==='В накопления'){ st.step='dest'; setState(chatId,st); sendMessage(chatId,'✅ '+fmtDate(d2)+'\nЦель:',listMenu(getGoals())); }
 else if(st.type==='Платёж по долгу'){ st.step='dest'; setState(chatId,st); sendMessage(chatId,'✅ '+fmtDate(d2)+'\nДолг:',listMenu(getDebts())); }
 else if(st.type==='Корректировка баланса'){ st.step='amount'; setState(chatId,st); sendMessage(chatId,'✅ '+fmtDate(d2)+'\n💰 На сколько скорректировать баланс? Сумма (₽), «-» если нужно уменьшить:',{remove_keyboard:true}); }
-      } else if(st.flow==='shift'){ st.step='phones'; setState(chatId,st); sendMessage(chatId,'✅ '+fmtDate(d2)+'\n📱 Сколько телефонов?',skipMenu()); }
+      } else if(st.flow==='shift'){ st.step='iphone'; setState(chatId,st); sendMessage(chatId,'✅ '+fmtDate(d2)+'\n🍏 Сколько iPhone?',skipMenu()); }
 return done_();
     }
 
@@ -461,13 +466,15 @@ clearState(chatId); sendMessage(chatId,line,mainMenu()); return done_();
 if(st.flow==='shift'){
 var num=(text==='⏭ Пропустить')?0:parseFloat(text.replace(',','.').replace(/\s/g,''));
 if(text!=='⏭ Пропустить'&&isNaN(num)){ sendMessage(chatId,'⚠️ Введите число (или «Пропустить»)'); return done_(); }
-if(st.step==='phones'){ st.phones=num; st.step='acc'; setState(chatId,st); sendMessage(chatId,'🎧 Аксессуары (₽)?',skipMenu()); }
+// ИЗМЕНЕНО (P1 #75): «Телефоны» разделены на iPhone/Android — два отдельных шага вместо одного.
+if(st.step==='iphone'){ st.iphone=num; st.step='android'; setState(chatId,st); sendMessage(chatId,'🤖 Сколько Android?',skipMenu()); }
+else if(st.step==='android'){ st.android=num; st.step='acc'; setState(chatId,st); sendMessage(chatId,'🎧 Аксессуары (₽)?',skipMenu()); }
 else if(st.step==='acc'){ st.acc=num; st.step='tech'; setState(chatId,st); sendMessage(chatId,'💻 Техника ВП (₽)?',skipMenu()); }
 else if(st.step==='tech'){ st.tech=num; st.step='serv'; setState(chatId,st); sendMessage(chatId,'🛠 Услуги (₽)?',skipMenu()); }
 else if(st.step==='serv'){ st.serv=num;
 var ds=st.date?new Date(st.date):new Date();
-appendShift(ds,st.phones||0,st.acc||0,st.tech||0,st.serv||0); clearState(chatId);
-sendMessage(chatId,'✅ Смена записана ('+fmtDate(ds)+'):\n📱 '+(st.phones||0)+' · 🎧 '+(st.acc||0)+' · 💻 '+(st.tech||0)+' · 🛠 '+(st.serv||0),mainMenu()); }
+appendShift(ds,st.iphone||0,st.android||0,st.acc||0,st.tech||0,st.serv||0); clearState(chatId);
+sendMessage(chatId,'✅ Смена записана ('+fmtDate(ds)+'):\n🍏 '+(st.iphone||0)+' · 🤖 '+(st.android||0)+' · 🎧 '+(st.acc||0)+' · 💻 '+(st.tech||0)+' · 🛠 '+(st.serv||0),mainMenu()); }
 return done_();
     }
 

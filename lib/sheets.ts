@@ -172,7 +172,7 @@ export async function deleteJournalRow(rowNumber: number): Promise<void> {
  * Добавляет строку в Журнал операций (B:G) и копирует формулы месяца/года (H:I)
  * из предыдущей строки через Sheets API copyPaste.
  */
-export async function appendOperationRow(values: string[]): Promise<void> {
+export async function appendOperationRow(values: (string | number)[]): Promise<void> {
   const sheets = await getSheets();
   const sheetName = SHEET.JOURNAL;
 
@@ -209,12 +209,20 @@ export async function appendOperationRow(values: string[]): Promise<void> {
 }
 
 /**
- * Добавляет строку со значениями (B:F) в лист смен, затем копирует формулы
- * (G:Z — ЗП, месяц, год и т.д.) из предыдущей строки через Sheets API copyPaste.
+ * Добавляет строку со значениями в лист смен, затем копирует формулы
+ * (G:I — ЗП за смену, месяц, год) из предыдущей строки через Sheets API copyPaste.
+ *
+ * ДОБАВЛЕНО (P1 #75): разделение телефонов на iPhone/Android — вместо одного
+ * общего поля «Телефоны» (колонка C) теперь два отдельных поля-счётчика:
+ * J = iPhone (шт.), K = Android (шт.). Колонка C («Телефоны», легаси) больше
+ * не заполняется новыми записями — оставлена только для старых смен, чтобы
+ * их данные не потерялись и продолжали учитываться в старой строке расчёта.
+ * J/K — это СЫРЫЕ данные (как C:F), а не формулы, поэтому копируем формулами
+ * только G:I, а J:K пишем явно вместе с B:F.
  *
  * @param sheetName - имя листа (используй SHEET.SHIFTS)
  * @param _dataRange - не используется, оставлен для совместимости с вызовами
- * @param values    - данные для записи в B:F
+ * @param values    - [date, phones(легаси, обычно '0'), accessories, tech, services, iphone, android]
  */
 export async function appendShiftRow(
   sheetName: string,
@@ -236,20 +244,30 @@ export async function appendShiftRow(
   const lastSheetRow = lastDataRow + 1;  // 1-indexed
   const newSheetRow  = lastSheetRow + 1;
 
-  // 2. Записываем данные (B:F) в новую строку
+  const [date, phones, accessories, tech, services, iphone, android] = values;
+
+  // 2. Записываем данные B:F (легаси «Телефоны» = '0' для новых записей)
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!B${newSheetRow}`,
+    range: `${sheetName}!B${newSheetRow}:F${newSheetRow}`,
     valueInputOption: 'USER_ENTERED',
-    requestBody: { values: [values] },
+    requestBody: { values: [[date, phones ?? '0', accessories, tech, services]] },
   });
 
-  // 3. Копируем формулы (G:Z — ЗП, месяц, год, ...) из предыдущей строки в новую.
-  //    G = 0-indexed 6, Z = 25, endCol = 26 (не включительно)
+  // 2b. Записываем J:K (iPhone / Android шт.) — сырые данные, не формулы
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!J${newSheetRow}:K${newSheetRow}`,
+    valueInputOption: 'USER_ENTERED',
+    requestBody: { values: [[iphone ?? '0', android ?? '0']] },
+  });
+
+  // 3. Копируем формулы (G:I — ЗП за смену, месяц, год) из предыдущей строки.
+  //    G = 0-indexed 6, I = 8, endCol = 9 (не включительно)
   try {
     const sheetId = await getSheetId(sheets, sheetName);
-    await copyRowFormulas(sheets, sheetId, lastSheetRow, newSheetRow, 6, 26);
+    await copyRowFormulas(sheets, sheetId, lastSheetRow, newSheetRow, 6, 9);
   } catch (e) {
-    console.warn('appendShiftRow: не удалось скопировать формулы (G:Z):', e);
+    console.warn('appendShiftRow: не удалось скопировать формулы (G:I):', e);
   }
 }

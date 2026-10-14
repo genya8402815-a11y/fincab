@@ -92,7 +92,10 @@ export default function AddRecord() {
   const [opDesc, setOpDesc] = useState('');
 
   const [shDate,  setShDate]  = useState(todayIso());
-  const [shPhone, setShPhone] = useState('');
+  // ИЗМЕНЕНО (P1 #75): «Телефоны» разделены на iPhone/Android — у них разные
+  // планы (37/45 шт и 13/16 шт), но общая шкала ставок (400/600/1000 ₽/шт).
+  const [shIphone, setShIphone] = useState('');
+  const [shAndroid, setShAndroid] = useState('');
   const [shAcc,   setShAcc]   = useState('');
   const [shTech,  setShTech]  = useState('');
   const [shSvc,   setShSvc]   = useState('');
@@ -178,9 +181,9 @@ export default function AddRecord() {
     setShSaving(true);
     try {
       const res  = await fetch('/api/add', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'shift', date: toRuDate(shDate), phones: shPhone, accessories: shAcc, tech: shTech, services: shSvc }) });
+        body: JSON.stringify({ kind: 'shift', date: toRuDate(shDate), iphone: shIphone, android: shAndroid, accessories: shAcc, tech: shTech, services: shSvc }) });
       const data = await res.json();
-      if (data.ok) { showToast('Смена записана!', 'success'); setShPhone(''); setShAcc(''); setShTech(''); setShSvc(''); }
+      if (data.ok) { showToast('Смена записана!', 'success'); setShIphone(''); setShAndroid(''); setShAcc(''); setShTech(''); setShSvc(''); }
       else showToast(data.error ?? 'Ошибка', 'error');
     } catch { showToast('Ошибка сети', 'error'); }
     setShSaving(false);
@@ -316,8 +319,11 @@ export default function AddRecord() {
                 <input style={inputS} type="date" value={shDate} onChange={e => setShDate(e.target.value)} />
               </Field>
             </div>
-            <Field label="📱 Телефоны (шт.)">
-              <input style={inputS} type="number" placeholder="0" value={shPhone} onChange={e => setShPhone(e.target.value)} />
+            <Field label="🍏 iPhone (шт.)">
+              <input style={inputS} type="number" placeholder="0" value={shIphone} onChange={e => setShIphone(e.target.value)} />
+            </Field>
+            <Field label="🤖 Android (шт.)">
+              <input style={inputS} type="number" placeholder="0" value={shAndroid} onChange={e => setShAndroid(e.target.value)} />
             </Field>
             <Field label="🎧 Аксессуары (₽)">
               <input style={inputS} type="number" placeholder="0" value={shAcc} onChange={e => setShAcc(e.target.value)} />
