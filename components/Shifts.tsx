@@ -108,7 +108,7 @@ export default function Shifts() {
       <div className="grid-4">
         <KPI color={C.green}  icon="✅" label="Отработано"   value={`${filtered.length} смен`} />
         <KPI color={C.blue}   icon="📅" label="По графику"   value={`${sal.scheduled} смен`}   sub={`осталось ${sal.remaining}`} />
-        <KPI color={C.green}  icon="💵" label="База по сменам" value={money(totalSal)}            sub={`ср. ${filtered.length > 0 ? money(Math.round(totalSal / filtered.length)) : '—'}/смена`} />
+        <KPI color={C.green}  icon="💵" label="Итого ЗП"     value={money(totalSal)}            sub={`ср. ${filtered.length > 0 ? money(Math.round(totalSal / filtered.length)) : '—'}/смена`} />
         <KPI color={C.yellow} icon="📱" label="Телефонов"    value={`${totalPhones} шт`} sub={`🍏 ${totalIphone} · 🤖 ${totalAndroid}${totalLegacy > 0 ? ` · старых без разбивки ${totalLegacy}` : ''}`} />
       </div>
 
@@ -170,7 +170,7 @@ export default function Shifts() {
             </div>
           </div>
           <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>База по сменам за период (без надбавок)</div>
+            <div style={{ fontSize: 12, color: C.sub, marginBottom: 4 }}>Итого ЗП за период</div>
             <div style={{ fontSize: 28, fontWeight: 700, color: C.green }}>{money(totalSal)}</div>
           </div>
         </div>
