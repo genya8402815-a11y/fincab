@@ -39,6 +39,8 @@ export default function Budget() {
   const [budgets,       setBudgets]  = useState<Record<string, number>>({});
   const [budgetLoading, setBudgetLoading] = useState(true);
   const [selMonth,      setSelMonth] = useState('');
+  // План по зарплате (50/30/20 с листа «Дашборд») — для сверки с лимитами (P1 #51)
+  const [salarySplit,   setSalarySplit] = useState<{ mandatory: string; savings: string; personal: string } | null>(null);
   const [editing,       setEditing]  = useState<string | null>(null);
   const [editVal,       setEditVal]  = useState('');
   const [saving,        setSaving]   = useState(false);
@@ -52,6 +54,9 @@ export default function Budget() {
     fetch('/api/budget').then(r => r.json())
       .then(b => { setBudgets(b.budgets ?? {}); setBudgetLoading(false); })
       .catch(() => setBudgetLoading(false));
+    fetch('/api/dashboard').then(r => r.json())
+      .then(d => { if (d.salarySplit) setSalarySplit(d.salarySplit); })
+      .catch(() => {});
   }, []);
 
   // Инициализируем текущий месяц при первом появлении данных журнала
@@ -123,6 +128,12 @@ export default function Budget() {
   const overCount     = allCats.filter(c => budgets[c] && (catActual.get(c) ?? 0) > budgets[c]).length;
   const remaining     = totalBudget - totalActualBudgeted;
 
+  // Сверка двух «бюджетов» (P1 #51): лимиты по категориям (снизу вверх) против
+  // расходной части плана по зарплате (обязательные + личные, сверху вниз; без
+  // накоплений). Лимиты не должны в сумме превышать то, что план отводит на траты.
+  const planSpend = salarySplit ? n(salarySplit.mandatory) + n(salarySplit.personal) : 0;
+  const limitsOverPlan = totalBudget > 0 && planSpend > 0 && totalBudget > planSpend;
+
   const card: React.CSSProperties = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 20 };
 
   return (
@@ -137,16 +148,37 @@ export default function Budget() {
           <option value="">Всё время</option>
           {months.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
         </select>
-        <span style={{ fontSize: 12, color: C.sub }}>Нажми на бюджет категории чтобы изменить</span>
+        <span style={{ fontSize: 12, color: C.sub }}>Нажми на лимит категории чтобы изменить</span>
       </div>
+
+      {/* Пояснение: чем лимиты отличаются от плана по зарплате (P1 #51) */}
+      <div style={{ fontSize: 12, color: C.sub, lineHeight: 1.5 }}>
+        Здесь — <b>лимиты по категориям</b> (сколько максимум тратить на каждую). Это не то же самое,
+        что «План по зарплате 50/30/20» на листе «Дашборд» в таблице, где итог зарплаты делится на обязательные,
+        накопления и личные.
+      </div>
+
+      {/* Сверка лимитов с планом по зарплате */}
+      {totalBudget > 0 && planSpend > 0 && (
+        <div style={{
+          fontSize: 13, lineHeight: 1.5, padding: '12px 16px', borderRadius: 12,
+          border: `1px solid ${limitsOverPlan ? C.orange : C.border}`,
+          background: limitsOverPlan ? `${C.orange}12` : C.surface,
+          color: limitsOverPlan ? C.orange : C.sub,
+        }}>
+          {limitsOverPlan
+            ? `⚠️ Сумма лимитов (${money(totalBudget)}) больше, чем план по зарплате отводит на траты (${money(Math.round(planSpend))} = обязательные + личные). Лимиты нереалистичны — либо снизь их, либо пересмотри доли в «Настройках».`
+            : `✅ Сумма лимитов (${money(totalBudget)}) укладывается в расходную часть плана по зарплате (${money(Math.round(planSpend))} = обязательные + личные).`}
+        </div>
+      )}
 
       {/* KPI */}
       <div className="grid-4">
-        <KPI color={C.blue}   icon="📋" label="Бюджет (план)"    value={totalBudget > 0 ? money(totalBudget) : 'Не задан'} />
+        <KPI color={C.blue}   icon="📋" label="Сумма лимитов"    value={totalBudget > 0 ? money(totalBudget) : 'Не задан'} />
         <KPI color={C.red}    icon="🛒" label="Потрачено"         value={money(totalActual)} />
-        <KPI color={remaining >= 0 ? C.green : C.red} icon="💰" label="Остаток"
+        <KPI color={remaining >= 0 ? C.green : C.red} icon="💰" label="Остаток по лимитам"
           value={money(Math.abs(remaining))}
-          sub={totalBudget > 0 ? (remaining >= 0 ? 'в рамках бюджета' : 'перерасход') : '—'} />
+          sub={totalBudget > 0 ? (remaining >= 0 ? 'в рамках лимитов' : 'перерасход') : '—'} />
         <KPI color={overCount > 0 ? C.red : C.green} icon={overCount > 0 ? '⚠️' : '✅'} label="Превышено"
           value={overCount > 0 ? `${overCount} кат.` : 'Всё ок'} />
       </div>
@@ -154,7 +186,7 @@ export default function Budget() {
       {/* Категории */}
       <div style={card}>
         <div style={{ fontSize: 12, fontWeight: 600, color: C.sub, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 20 }}>
-          💡 План vs Факт по категориям
+          💡 Лимиты по категориям: план vs факт
         </div>
 
         {allCats.length === 0 && (

@@ -9,7 +9,20 @@ export async function GET() {
 
     const pace = await readRange(RANGES.PACE_TRACKER);
 
+    // P1 #51: план по зарплате (обязательные / накопления / личные) — для сверки
+    // с лимитами по категориям на странице «Бюджет». Сбой чтения не критичен.
+    let salarySplit = { mandatory: '0', savings: '0', personal: '0' };
+    try {
+      const sp = await readRange(RANGES.SALARY_SPLIT);
+      salarySplit = {
+        mandatory: String(sp[0]?.[0] ?? '0'),
+        savings:   String(sp[1]?.[0] ?? '0'),
+        personal:  String(sp[2]?.[0] ?? '0'),
+      };
+    } catch { /* оставляем нули */ }
+
     return NextResponse.json({
+      salarySplit,
       month:   cell(header, C.MONTH,   ''),
       year:    cell(header, C.YEAR,    ''),
       balance: cell(header, C.BALANCE, '0'),

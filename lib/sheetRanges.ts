@@ -54,6 +54,10 @@ export const DASHBOARD = {
 
 export const RANGES = {
   PACE_TRACKER:    `${SHEET.SALARY_CALC}!B89:H97`,  // Трекер темпа смен
+  // План по зарплате (P1 #51, «сверху вниз»): E18 обязательные, E19 накопления,
+  // E20 личные — итог ЗП × доли из Настроек (50/30/20). Не путать с лимитами по
+  // категориям на странице «Бюджет» («снизу вверх»).
+  SALARY_SPLIT:    `${SHEET.DASHBOARD}!E18:E20`,
   JOURNAL:         `${SHEET.JOURNAL}!B5:G2000`,      // Журнал операций (все данные)
   GOALS_NAMES:     `${SHEET.GOALS}!B6:B25`,          // Названия целей
   REGULARS:        `${SHEET.REGULARS}!B5:F20`,       // Регулярные платежи

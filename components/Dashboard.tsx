@@ -205,10 +205,10 @@ export default function Dashboard() {
         <KPI
           color={budgetColor}
           icon="📋"
-          label="Отклонение от бюджета"
+          label="Отклонение от лимитов"
           value={journalLoading ? '…' : totalBudgetSet > 0 ? fmt(Math.abs(budgetDeviation)) : 'Не задан'}
           sub={journalLoading ? 'загрузка…' : totalBudgetSet > 0
-            ? (budgetDeviation > 0 ? `⚠️ перерасход · ${budgetPct}%` : `в рамках бюджета · ${budgetPct}%`)
+            ? (budgetDeviation > 0 ? `⚠️ перерасход · ${budgetPct}%` : `в рамках лимитов · ${budgetPct}%`)
             : 'задай лимиты на странице «Бюджет»'}
         />
       </div>
