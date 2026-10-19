@@ -139,7 +139,8 @@ function clearState(chatId){ props().deleteProperty('ST_'+chatId); }
 
 // Последние N операций журнала (для 🔁 Повторить и 📝 Последние записи).
 // Сканирует снизу вверх и пропускает пустые строки — так список остаётся
-// верным, даже если внутри журнала есть "дыры" от ранее удалённых записей.
+// верным, даже если внутри журнала остались "дыры" от записей, удалённых
+// раньше очисткой ячеек (теперь удаление физическое — см. confirm_delete).
 function getRecentOperations(n){
 var sh=SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL);
 var lastRow=sh.getLastRow();
@@ -152,6 +153,21 @@ items.push({row:5+i,date:data[i][0],type:data[i][1],amount:data[i][2],category:d
     }
   }
 return items;
+}
+// ДОБАВЛЕНО (P1 #50): проверка, что в строке журнала всё ещё лежит та запись,
+// которую пользователь выбрал в списке. Записи адресуются номером строки, а
+// удаление (и на сайте, и в боте) физически сдвигает строки — если за время
+// диалога запись удалили/добавили с другого устройства, номер указывает уже на
+// другую операцию, и правка/удаление попали бы не туда.
+var STALE_MSG_='⚠️ Запись изменилась (её удалили или добавили с другого устройства). Откройте «📝 Последние записи» заново.';
+function journalRowMatches_(row,sel){
+var sh=SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL);
+var v=sh.getRange(row,2,1,3).getValues()[0]; // B:D
+if(!v[0]) return false;
+if(new Date(v[0]).getTime()!==new Date(sel.date).getTime()) return false;
+if(String(v[1])!==String(sel.type)) return false;
+if(Math.abs(Number(v[2])-Number(sel.amount))>0.005) return false;
+return true;
 }
 // Если категория записанного «Расхода» совпадает с колонкой «Категория» (E)
 // какой-то строки в 🔁 Регулярные — автоматически ставим галочку «Оплачено» (F)
@@ -526,7 +542,10 @@ sendMessage(chatId,'Выберите действие:',browseActionMenu(sel)); 
       }
 if(st.step==='edit_amount'){
 var newAmt=parseFloat(text.replace(',','.').replace(/\s/g,''));
-if(isNaN(newAmt)||newAmt<=0){ sendMessage(chatId,'⚠️ Введите положительное число'); return done_(); }
+// «Корректировка баланса» (P0 #45): сумма может быть отрицательной.
+var isAdjE=(st.selected.type==='Корректировка баланса');
+if(isNaN(newAmt)||newAmt===0||(!isAdjE&&newAmt<0)){ sendMessage(chatId, isAdjE?'⚠️ Введите число, не равное 0':'⚠️ Введите положительное число'); return done_(); }
+if(!journalRowMatches_(st.selected.row,st.selected)){ clearState(chatId); sendMessage(chatId,STALE_MSG_,mainMenu()); return done_(); }
 SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL).getRange(st.selected.row,4).setValue(newAmt);
 bumpSiteCache_();
 var amsg='✅ Сумма обновлена: '+fmtMoney(st.selected.amount)+' → '+fmtMoney(newAmt)+' ₽';
@@ -534,19 +553,24 @@ clearState(chatId); sendMessage(chatId,amsg,mainMenu()); return done_();
       }
 if(st.step==='edit_catdest'){
 var isCat2=(st.selected.type==='Расход'||st.selected.type==='Доход');
+if(!journalRowMatches_(st.selected.row,st.selected)){ clearState(chatId); sendMessage(chatId,STALE_MSG_,mainMenu()); return done_(); }
 SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL).getRange(st.selected.row,isCat2?5:6).setValue(text);
 bumpSiteCache_();
 clearState(chatId); sendMessage(chatId,'✅ Обновлено: '+text,mainMenu()); return done_();
       }
 if(st.step==='edit_desc'){
 var newDesc=(text==='⏭ Пропустить')?'':text;
+if(!journalRowMatches_(st.selected.row,st.selected)){ clearState(chatId); sendMessage(chatId,STALE_MSG_,mainMenu()); return done_(); }
 SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL).getRange(st.selected.row,7).setValue(newDesc);
 bumpSiteCache_();
 clearState(chatId); sendMessage(chatId,'✅ Описание обновлено'+(newDesc?': '+newDesc:' (очищено)'),mainMenu()); return done_();
       }
 if(st.step==='confirm_delete'){
 if(text==='✅ Да, удалить'){
-SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL).getRange(st.selected.row,2,1,8).clearContent();
+// P1 #50: единая семантика с сайтом — строка удаляется физически (без «дыр»).
+// Сначала сверяем, что в строке всё ещё выбранная запись (строки сдвигаются).
+if(!journalRowMatches_(st.selected.row,st.selected)){ clearState(chatId); sendMessage(chatId,STALE_MSG_,mainMenu()); return done_(); }
+SpreadsheetApp.getActive().getSheetByName(SHEET_JOURNAL).deleteRow(st.selected.row);
 bumpSiteCache_();
 clearState(chatId); sendMessage(chatId,'🗑 Запись удалена.',mainMenu()); return done_();
         }

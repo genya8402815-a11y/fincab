@@ -99,7 +99,7 @@ export async function writeRangeRaw(range: string, values: unknown[][]): Promise
   });
 }
 
-export async function writeRange(range: string, values: string[][]): Promise<void> {
+export async function writeRange(range: string, values: (string | number)[][]): Promise<void> {
   const sheets = await getSheets();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
@@ -144,8 +144,40 @@ export async function appendRow(range: string, values: string[]): Promise<void> 
   });
 }
 
-export async function updateJournalRow(rowNumber: number, values: string[]): Promise<void> {
+export async function updateJournalRow(rowNumber: number, values: (string | number)[]): Promise<void> {
   await writeRange(`${SHEET.JOURNAL}!B${rowNumber}:G${rowNumber}`, [values]);
+}
+
+/** Сумма из текста таблицы или формы ("104 199,72", "104199.72", "5 000 ₽") → число. */
+export function parseMoney(v: unknown): number {
+  const s = String(v ?? '').replace(/[\s ₽]/g, '').replace(',', '.');
+  return parseFloat(s);
+}
+
+/**
+ * ДОБАВЛЕНО (P1 #50): проверка, что в строке журнала всё ещё лежит та запись,
+ * которую пользователь видел при открытии списка. Нужна, потому что записи
+ * адресуются номером строки, а удаление физически сдвигает строки: если за это
+ * время запись удалили/добавили с другого устройства или из бота, номер
+ * указывает уже на другую операцию, и правка/удаление попали бы не туда.
+ */
+export async function journalRowMatches(
+  rowNumber: number,
+  expected: { date?: string; type?: string; amount?: unknown },
+): Promise<boolean> {
+  const rows = await readRange(`${SHEET.JOURNAL}!B${rowNumber}:D${rowNumber}`);
+  const r = rows[0] ?? [];
+  const date = String(r[0] ?? '').trim();
+  const type = String(r[1] ?? '').trim();
+  if (!date) return false;
+  if (expected.date !== undefined && date !== String(expected.date).trim()) return false;
+  if (expected.type !== undefined && type !== String(expected.type).trim()) return false;
+  if (expected.amount !== undefined) {
+    const a = parseMoney(r[2]);
+    const b = parseMoney(expected.amount);
+    if (isNaN(a) || isNaN(b) || Math.abs(a - b) > 0.005) return false;
+  }
+  return true;
 }
 
 export async function deleteJournalRow(rowNumber: number): Promise<void> {

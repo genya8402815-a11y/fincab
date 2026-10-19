@@ -80,7 +80,7 @@ export default function Journal() {
   const [error,       setError]       = useState('');
   const [selMonth,    setSelMonth]    = useState('');
   const [search,      setSearch]      = useState('');
-  const [editEntry,   setEditEntry]   = useState<{ rowIndex: number; form: EditForm } | null>(null);
+  const [editEntry,   setEditEntry]   = useState<{ rowIndex: number; form: EditForm; orig: { date: string; type: string; amount: string } } | null>(null);
   const [deletingRow, setDeletingRow] = useState<number | null>(null);
   const [saving,       setSaving]      = useState(false);
   const [saveError,    setSaveError]   = useState('');
@@ -135,6 +135,8 @@ export default function Journal() {
     setEditEntry({
       rowIndex: e.rowIndex,
       form: { date: e.date, type: e.type, amount: e.amount, category: e.category, target: e.target, description: e.description },
+      // P1 #50: исходные дата/тип/сумма — сервер сверит, что в строке всё ещё эта запись
+      orig: { date: e.date, type: e.type, amount: e.amount },
     });
   };
 
@@ -150,9 +152,13 @@ export default function Journal() {
       const res = await fetch(`/api/journal/${editEntry.rowIndex}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, expected: editEntry.orig }),
       });
-      if (!res.ok) throw new Error('Ошибка сервера');
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 409) await refresh();
+        throw new Error(d.error || 'Ошибка сервера');
+      }
       setEditEntry(null);
       await refresh();
     } catch (err) {
@@ -162,11 +168,22 @@ export default function Journal() {
     }
   };
 
-  const handleDelete = async (rowIndex: number) => {
+  const handleDelete = async (entry: Entry) => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/journal/${rowIndex}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
+      const res = await fetch(`/api/journal/${entry.rowIndex}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        // P1 #50: сервер сверит, что в строке всё ещё эта запись, прежде чем удалять
+        body: JSON.stringify({ expected: { date: entry.date, type: entry.type, amount: entry.amount } }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setDeletingRow(null);
+        await refresh();
+        window.alert(d.error || 'Не удалось удалить запись');
+        return;
+      }
       setDeletingRow(null);
       await refresh();
     } catch {
@@ -347,7 +364,7 @@ export default function Journal() {
                       {isDel ? (
                         <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                           <button
-                            onClick={() => handleDelete(e.rowIndex)}
+                            onClick={() => handleDelete(e)}
                             disabled={saving}
                             style={{ padding: '3px 8px', borderRadius: 6, border: 'none', background: C.red, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: saving ? .6 : 1 }}
                           >Да</button>
