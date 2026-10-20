@@ -122,8 +122,8 @@ export default function PaceTracker({ pace, variant = 'full' }: { pace: string[]
             <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: i === 0 ? C.text : C.sub }}>
               {i === 0 ? `${g.icon} ${g.label} · ${r.level}` : `  ${r.level}`}
             </span>
-            <Bar pct={r.pct} color={KIND_COLOR[r.kind]} width={44} />
-            <span style={{ width: 118, textAlign: 'right', whiteSpace: 'nowrap', color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ flexShrink: 0 }}><Bar pct={r.pct} color={KIND_COLOR[r.kind]} width={44} /></span>
+            <span style={{ width: 170, flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap', color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
               {r.fact} / {r.plan}
             </span>
             <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: KIND_COLOR[r.kind] }} title={r.statusText} />
