@@ -43,6 +43,11 @@ async function checkRL(key: string, max: number, windowSeconds: number): Promise
 const PUBLIC_PATHS = [
   '/login',
   '/api/cron/',           // Vercel Cron — используют CRON_SECRET
+  // Остальные крон-эндпоинты из vercel.json: раньше middleware отвечал им 401 (нет
+  // cookie/API-ключа), и ежедневный push в 23:00 и ежемесячный сброс чекбоксов
+  // не срабатывали. Оба роута сами проверяют `Authorization: Bearer CRON_SECRET`.
+  '/api/push/send',
+  '/api/reset-checkboxes',
   '/api/cache/version',   // дёргается из Apps Script (onEdit/бот), не из браузера — свой CRON_SECRET внутри роута
   '/_next/',
   '/favicon.ico',
