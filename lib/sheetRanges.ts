@@ -22,7 +22,6 @@ export const SHEET = {
   BUDGET:      '💡 Бюджет',
   DEBTS:       '💳 Долги',
   CATEGORIES:  '⚙ Категории',
-  PUSH_SUBS:   'Push',
   HISTORY:     '📈 История',
 } as const;
 
@@ -72,7 +71,9 @@ export const RANGES = {
   SHIFTS:          `${SHEET.SHIFTS}!B5:H2000`,       // Смены (все данные)
   SHIFTS_TEMPLATE: `${SHEET.SHIFTS}!B5:F5`,          // Шаблон первой строки смены
   CATEGORIES:      `${SHEET.CATEGORIES}!B2:B50`,     // Кастомные категории
-  PUSH_SUBS:       `${SHEET.PUSH_SUBS}!E1:E50`,      // Push-подписки
+  // P2 #53: подписки больше не хранятся в таблице (теперь Redis, lib/pushStore.ts).
+  // Диапазон оставлен только для одноразовой миграции старых записей и очистки.
+  PUSH_SUBS_LEGACY: `'⚙ Служебный'!E1:E50`,
   BUDGET:          `${SHEET.BUDGET}!B3:D50`,         // Бюджет (категории + лимиты + факт)
   HISTORY:         `${SHEET.HISTORY}!A:B`,           // Исторический баланс (месяц, сумма)
 } as const;

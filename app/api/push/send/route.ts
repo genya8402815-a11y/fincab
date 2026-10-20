@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readRange, writeRange } from '@/lib/sheets';
+import { listSubs, removeByField } from '@/lib/pushStore';
 import webpush from 'web-push';
 
 webpush.setVapidDetails(
@@ -7,8 +7,6 @@ webpush.setVapidDetails(
   process.env.VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!
 );
-
-const RANGE = "'⚙ Служебный'!E1:E50";
 
 const NOTIFICATIONS = [
   { title: 'FinCab 💰', body: 'Не забудь внести расходы и доходы за сегодня' },
@@ -23,10 +21,8 @@ export async function GET(request: Request) {
   if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const rows = await readRange(RANGE);
-    const subs = rows
-      .map((r, i) => ({ json: String(r[0] ?? '').trim(), row: i + 1 }))
-      .filter(s => s.json);
+    // P2 #53: подписки читаем из Redis (lib/pushStore.ts), не из таблицы.
+    const subs = await listSubs();
 
     if (subs.length === 0) {
       return NextResponse.json({ ok: true, sent: 0, devices: 0, message: 'Нет подписок' });
@@ -34,11 +30,10 @@ export async function GET(request: Request) {
 
     let sent = 0;
     let failed = 0;
-    const toRemove: number[] = [];
+    const toRemove: string[] = [];
 
     for (const s of subs) {
-      let subscription: webpush.PushSubscription;
-      try { subscription = JSON.parse(s.json); } catch { toRemove.push(s.row); continue; }
+      const subscription = s.sub as unknown as webpush.PushSubscription;
 
       for (const notif of NOTIFICATIONS) {
         try {
@@ -48,7 +43,7 @@ export async function GET(request: Request) {
           const status = (e as { statusCode?: number }).statusCode;
           // 410 = подписка истекла, 404 = не найдена → удаляем
           if (status === 410 || status === 404) {
-            if (!toRemove.includes(s.row)) toRemove.push(s.row);
+            if (!toRemove.includes(s.field)) toRemove.push(s.field);
           }
           failed++;
         }
@@ -56,9 +51,7 @@ export async function GET(request: Request) {
     }
 
     // Очищаем устаревшие подписки
-    for (const row of toRemove) {
-      await writeRange(`'⚙ Служебный'!E${row}`, [['']] );
-    }
+    await removeByField(toRemove);
 
     return NextResponse.json({
       ok: true,
