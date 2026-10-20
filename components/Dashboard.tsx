@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useJournal } from '@/lib/useJournal';
+import PaceTracker from './PaceTracker';
 
 interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; }
 interface Goal     { name: string; saved: string; need: string; left: string; percent: string; }
@@ -218,15 +219,10 @@ export default function Dashboard() {
         {/* Трекер темпа */}
         <div style={card}>
           <div style={cardTitle}>📈 Трекер темпа · {dash.month} {dash.year}</div>
-          {dash.pace?.length > 0 ? dash.pace.map((r, i) => (
-            <div key={i} style={{ ...row, ...(i === dash.pace.length - 1 ? { borderBottom: 'none' } : {}) }}>
-              <span style={{ color: C.sub }}>{r[0] ? `${r[0]} · ${r[1]}` : r[1]}</span>
-              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: C.sub }}>факт: {r[3]} · план: {r[2]}</span>
-                <span style={{ fontSize: 13 }}>{r[r.length - 1]}</span>
-              </div>
-            </div>
-          )) : <span style={{ color: C.sub, fontSize: 13 }}>Нет данных</span>}
+          {/* Раньше строки сводки и шапки (первые две) выводились как данные — теперь парсит PaceTracker */}
+          {dash.pace?.length > 0
+            ? <PaceTracker pace={dash.pace} variant="compact" />
+            : <span style={{ color: C.sub, fontSize: 13 }}>Нет данных</span>}
         </div>
 
         {/* Правая колонка: Долги + Регулярные */}

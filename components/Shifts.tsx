@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import PaceTracker from './PaceTracker';
 
 interface SalaryData { scheduled: string; worked: string; remaining: string; pace: string[][]; }
 interface Shift { date: string; phones: string; iphone: string; android: string; accessories: string; tech: string; services: string; salary: string; }
@@ -9,7 +10,6 @@ const C = {
   green: '#4ade80', blue: '#6c8ef7', yellow: '#fbbf24', orange: '#fb923c',
   purple: '#c084fc', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27',
   surface2: '#222535', text: '#e2e8f0',
-  divider: 'rgba(148,163,184,0.22)',   // полупрозрачные вертикальные разделители таблицы трекера
 };
 const RU_MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 
@@ -128,29 +128,8 @@ export default function Shifts() {
             <div style={{ fontSize: 12, fontWeight: 600, color: C.sub, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 16 }}>
               📈 Трекер темпа (текущий месяц)
             </div>
-            <div className="table-scroll">
-              {/* Всё в одну строку (nowrap) — при нехватке ширины таблица скроллится по горизонтали.
-                  Вертикальные полупрозрачные разделители: между «Показатель | Уровень…» и «…Нужно/смену | Статус». */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
-                <tbody>
-                  {sal.pace.map((r, i) => {
-                    const isTable = r.length >= 7;               // строка шапки/данных (7 колонок); строка 0 — сводка по сменам
-                    const base: React.CSSProperties = { padding: '9px 12px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' };
-                    const vline = `1px solid ${C.divider}`;
-                    return (
-                      <tr key={i}>
-                        <td style={{ ...base, color: C.sub, fontWeight: 600 }}>{r[0]}</td>
-                        <td style={{ ...base, color: C.sub, ...(isTable ? { borderLeft: vline } : {}) }}>{r[1]}</td>
-                        {r.slice(2, -1).map((cell, j) => (
-                          <td key={j} style={base}>{cell}</td>
-                        ))}
-                        <td style={{ ...base, textAlign: 'right', ...(isTable ? { borderLeft: vline } : {}) }}>{r[r.length - 1]}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            {/* Группы, полоски выполнения, «ближайшая цель», разделители — см. PaceTracker */}
+            <PaceTracker pace={sal.pace} />
           </div>
         ) : <div />}
 
