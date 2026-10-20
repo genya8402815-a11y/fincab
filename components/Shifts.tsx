@@ -9,6 +9,7 @@ const C = {
   green: '#4ade80', blue: '#6c8ef7', yellow: '#fbbf24', orange: '#fb923c',
   purple: '#c084fc', sub: '#8892a4', border: '#2d3148', surface: '#1a1d27',
   surface2: '#222535', text: '#e2e8f0',
+  divider: 'rgba(148,163,184,0.22)',   // полупрозрачные вертикальные разделители таблицы трекера
 };
 const RU_MONTHS = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
 
@@ -128,18 +129,25 @@ export default function Shifts() {
               📈 Трекер темпа (текущий месяц)
             </div>
             <div className="table-scroll">
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 380 }}>
+              {/* Всё в одну строку (nowrap) — при нехватке ширины таблица скроллится по горизонтали.
+                  Вертикальные полупрозрачные разделители: между «Показатель | Уровень…» и «…Нужно/смену | Статус». */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
                 <tbody>
-                  {sal.pace.map((r, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: '9px 10px', color: C.sub, fontWeight: 600, borderBottom: `1px solid ${C.border}` }}>{r[0]}</td>
-                      <td style={{ padding: '9px 10px', color: C.sub, borderBottom: `1px solid ${C.border}` }}>{r[1]}</td>
-                      {r.slice(2, -1).map((cell, j) => (
-                        <td key={j} style={{ padding: '9px 10px', borderBottom: `1px solid ${C.border}` }}>{cell}</td>
-                      ))}
-                      <td style={{ padding: '9px 10px', textAlign: 'right', borderBottom: `1px solid ${C.border}` }}>{r[r.length - 1]}</td>
-                    </tr>
-                  ))}
+                  {sal.pace.map((r, i) => {
+                    const isTable = r.length >= 7;               // строка шапки/данных (7 колонок); строка 0 — сводка по сменам
+                    const base: React.CSSProperties = { padding: '9px 12px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' };
+                    const vline = `1px solid ${C.divider}`;
+                    return (
+                      <tr key={i}>
+                        <td style={{ ...base, color: C.sub, fontWeight: 600 }}>{r[0]}</td>
+                        <td style={{ ...base, color: C.sub, ...(isTable ? { borderLeft: vline } : {}) }}>{r[1]}</td>
+                        {r.slice(2, -1).map((cell, j) => (
+                          <td key={j} style={base}>{cell}</td>
+                        ))}
+                        <td style={{ ...base, textAlign: 'right', ...(isTable ? { borderLeft: vline } : {}) }}>{r[r.length - 1]}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
