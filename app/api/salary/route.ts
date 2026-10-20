@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server';
 import { readRange } from '@/lib/sheets';
+import { RANGES } from '@/lib/sheetRanges';
 
 export async function GET() {
   try {
-    // Смены: B87:G87 (граф/отраб/остал)
-    const summary = await readRange('📊 Расчёт ЗП!B87:G87');
-    // Трекер темпа: B89:H97
-    const pace = await readRange('📊 Расчёт ЗП!B89:H97');
+    // Трекер темпа — единый диапазон из sheetRanges (раньше здесь был зашит
+    // B89:H97, а сводка читалась из пустой строки 87 — из-за этого «Прогресс месяца»
+    // показывал 0 смен, а часть строк трекера обрезалась).
+    const pace = await readRange(RANGES.PACE_TRACKER);
 
-    // B87: "Смен в графике:" C87: число D87: "Отработано:" E87: число F87: "Осталось смен:" G87: число
-    const s = summary[0] ?? [];
+    // Первая строка диапазона — сводка по сменам:
+    // B: «Смен в графике:» C: число, D: «Отработано:» E: число, F: «Осталось смен:» G: число
+    const s = pace[0] ?? [];
     return NextResponse.json({
-      scheduled: s[1] ?? '0',  // C87
-      worked:    s[3] ?? '0',  // E87
-      remaining: s[5] ?? '0',  // G87
+      scheduled: s[1] ?? '0',
+      worked:    s[3] ?? '0',
+      remaining: s[5] ?? '0',
       pace,
     });
   } catch (e) {
