@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { useJournal } from '@/lib/useJournal';
 import PaceTracker from './PaceTracker';
 
-interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; }
-interface Goal     { name: string; saved: string; need: string; left: string; percent: string; }
+interface DashData { month: string; year: string; balance: string; salary: string; debt: string; savings: string; pace: string[][]; forecast?: { ahead: string; free: string; perDay: string } | null; }
+interface Goal    { name: string; saved: string; need: string; left: string; percent: string; }
 interface Debt     { name: string; initial: string; paid: string; left: string; day?: string; monthly?: string; }
 interface Regular  { rowIndex: number; name: string; day: string; amount: string; category: string; paid: boolean; }
 
@@ -80,7 +80,9 @@ export default function Dashboard() {
   if (loading || !dash) return <div style={{ color: C.sub, padding: 60, textAlign: 'center' }}>Загрузка…</div>;
 
   // --- KPI computations ---
-  const freeAmt = n(dash.balance) - unpaidAmt;
+  // #77: «свободно» берём из листа (Дашборд!J14); если недоступно — старый расчёт.
+  const aheadAmt = dash.forecast ? n(dash.forecast.ahead) : unpaidAmt;
+  const freeAmt = dash.forecast ? n(dash.forecast.free) : n(dash.balance) - unpaidAmt;
   const freeColor = freeAmt >= 0 ? C.orange : C.red;
 
   const totalRegulars = regulars.reduce((s, r) => s + n(r.amount), 0);
@@ -185,7 +187,7 @@ export default function Dashboard() {
       <div className="grid-4">
         <KPI color={C.green}   icon="💵" label="Остаток на счёте"       value={fmt(dash.balance)} />
         <KPI color={C.blue}    icon="📊" label="Зарплата (расчёт)"      value={fmt(dash.salary)}  sub={`${dash.month} ${dash.year}`} />
-        <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? '⚠️ Не хватает' : `неопл. ${fmt(unpaidAmt)}`} />
+        <KPI color={freeColor} icon="✅" label="Свободно (после обяз.)" value={fmt(Math.abs(freeAmt))} sub={freeAmt < 0 ? `⚠️ Не хватает · впереди ${fmt(aheadAmt)}` : `обяз. впереди ${fmt(aheadAmt)}`} />
         <KPI color={C.red}     icon="💳" label="Общий долг"             value={fmt(dash.debt)}    sub={`${activeDebts.length} долгов`} />
         <KPI color={C.yellow}  icon="🎯" label="Накопления"             value={fmt(dash.savings)} sub={`${goals.length} целей`} />
         <KPI color={salary > 0 ? dtiColor : C.sub} icon="📉" label="Нагрузка / Доход" value={salary > 0 ? `${dti}%` : '—'} sub={salary > 0 ? dtiLabel : 'нет данных'} />

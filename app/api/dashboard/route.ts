@@ -21,8 +21,21 @@ export async function GET() {
       };
     } catch { /* оставляем нули */ }
 
+    // #77: прогноз «до зарплаты» берём готовым из листа (J12:J15), чтобы сайт и
+    // таблица показывали одно и то же. null — если чтение не удалось (сайт посчитает сам).
+    let forecast: { ahead: string; free: string; perDay: string } | null = null;
+    try {
+      const f = await readRange(RANGES.FORECAST);
+      forecast = {
+        ahead:  String(f[1]?.[0] ?? '0'),
+        free:   String(f[2]?.[0] ?? '0'),
+        perDay: String(f[3]?.[0] ?? '0'),
+      };
+    } catch { /* fallback на старый расчёт */ }
+
     return NextResponse.json({
       salarySplit,
+      forecast,
       month:   cell(header, C.MONTH,   ''),
       year:    cell(header, C.YEAR,    ''),
       balance: cell(header, C.BALANCE, '0'),
