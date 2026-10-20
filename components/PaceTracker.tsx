@@ -136,9 +136,14 @@ export default function PaceTracker({ pace, variant = 'full' }: { pace: string[]
   // ── Полная версия (вкладка «Смены») ──────────────────────────────────────
   const monthPct = scheduled > 0 ? Math.min(100, Math.round((worked / scheduled) * 100)) : 0;
 
-  // «Ближайшая цель»: среди отстающих — тот уровень, который ближе всего к выполнению
-  const behind = groups.flatMap(g => g.rows.map(r => ({ g, r }))).filter(x => x.r.kind === 'behind');
-  const nearest = behind.length > 0 ? behind.reduce((a, b) => (b.r.pct > a.r.pct ? b : a)) : null;
+  // «Ближайшая цель»: в каждой группе — первый ещё не выполненный уровень (следующая
+  // ступень), а среди них — тот, что ближе всего к выполнению (по проценту).
+  // Раньше брались только отстающие строки и могла выпасть «макс», хотя «мин»/«средний»
+  // той же группы ещё не пройдены и стоят ближе.
+  const candidates = groups
+    .map(g => { const r = g.rows.find(x => x.kind !== 'done'); return r ? { g, r } : null; })
+    .filter((x): x is { g: Group; r: Row } => x !== null);
+  const nearest = candidates.length > 0 ? candidates.reduce((a, b) => (b.r.pct > a.r.pct ? b : a)) : null;
 
   const base: React.CSSProperties = { padding: '9px 12px', borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
   const num: React.CSSProperties = { ...base, textAlign: 'right' };
@@ -162,14 +167,17 @@ export default function PaceTracker({ pace, variant = 'full' }: { pace: string[]
       </div>
 
       {/* Ближайшая цель */}
-      <div style={{ background: C.surface2, borderLeft: `3px solid ${nearest ? C.yellow : C.green}`, padding: '10px 14px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
+      <div style={{ background: C.surface2, borderLeft: `3px solid ${nearest ? KIND_COLOR[nearest.r.kind] : C.green}`, padding: '10px 14px', marginBottom: 16, fontSize: 13, lineHeight: 1.5 }}>
         {nearest ? (
           <>
             <span style={{ color: C.sub }}>Ближайшая цель:</span> {nearest.g.label} до уровня «{nearest.r.level}» — ещё{' '}
-            <b>{nearest.r.left}{nearest.g.unit}</b>, это <b style={{ color: C.yellow }}>{nearest.r.perShift}{nearest.g.unit} в смену</b>. Отстаёшь от темпа.
+            <b>{nearest.r.left}{nearest.g.unit}</b>, это <b style={{ color: KIND_COLOR[nearest.r.kind] }}>{nearest.r.perShift}{nearest.g.unit} в смену</b>.{' '}
+            <span style={{ color: C.sub }}>
+              {nearest.r.kind === 'behind' ? 'Отстаёшь от темпа.' : nearest.r.kind === 'ok' ? 'Идёшь по графику.' : nearest.r.statusText + '.'}
+            </span>
           </>
         ) : (
-          <span style={{ color: C.sub }}>Все показатели идут по графику или выполнены.</span>
+          <span style={{ color: C.sub }}>Все уровни выполнены.</span>
         )}
       </div>
 
