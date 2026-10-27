@@ -46,6 +46,7 @@ const PUBLIC_PATHS = [
   // Остальные крон-эндпоинты из vercel.json: раньше middleware отвечал им 401 (нет
   // cookie/API-ключа), и ежедневный push в 23:00 и ежемесячный сброс чекбоксов
   // не срабатывали. Оба роута сами проверяют `Authorization: Bearer CRON_SECRET`.
+  '/api/regulars/mark-paid', // вызывается ботом (Apps Script), защищён CRON_SECRET внутри роута
   '/api/push/send',
   '/api/reset-checkboxes',
   '/api/cache/version',   // дёргается из Apps Script (onEdit/бот), не из браузера — свой CRON_SECRET внутри роута

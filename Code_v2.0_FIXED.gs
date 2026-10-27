@@ -169,22 +169,26 @@ if(String(v[1])!==String(sel.type)) return false;
 if(Math.abs(Number(v[2])-Number(sel.amount))>0.005) return false;
 return true;
 }
-// Если категория записанного «Расхода» совпадает с колонкой «Категория» (E)
-// какой-то строки в 🔁 Регулярные — автоматически ставим галочку «Оплачено» (F)
-// для первой НЕоплаченной строки с таким же названием (без учёта регистра).
-// Экономит отдельный поход в лист Регулярные ради одного чекбокса.
+// Автоотметка «Оплачено» в 🔁 Регулярные для расхода с такой же категорией.
+// P3 #1: само правило живёт ТОЛЬКО на сайте (lib/sheets.ts → markRegularPaidByCategory,
+// эндпоинт /api/regulars/mark-paid). Здесь — тонкий вызов, чтобы не держать
+// две копии логики. Использует тот же CRON_SECRET в Script Properties, что и
+// bumpSiteCache_. Если секрета нет или сайт недоступен — тихо пропускаем:
+// запись в Журнал это не затрагивает, галочку можно поставить вручную.
+var MARK_PAID_URL = 'https://fincab.vercel.app/api/regulars/mark-paid';
 function markRegularPaidByCategory_(category){
 if(!category) return;
-var cat=String(category).trim().toLowerCase();
-if(!cat) return;
-var sh=SpreadsheetApp.getActive().getSheetByName('🔁 Регулярные');
-if(!sh) return;
-var data=sh.getRange('B6:F20').getValues();
-for(var i=0;i<data.length;i++){
-var rowCat=String(data[i][3]||'').trim().toLowerCase();
-var paid=data[i][4]===true;
-if(rowCat && rowCat===cat && !paid){ sh.getRange(6+i,6).setValue(true); return; }
-  }
+try{
+var secret=props().getProperty('CRON_SECRET');
+if(!secret) return;
+UrlFetchApp.fetch(MARK_PAID_URL,{
+method:'post',
+contentType:'application/json',
+headers:{'Authorization':'Bearer '+secret},
+payload:JSON.stringify({category:String(category)}),
+muteHttpExceptions:true
+    });
+  }catch(err){ /* автоотметка не критична — не мешаем записи операции */ }
 }
 // ====== СБРОС КЕША ЖУРНАЛА НА САЙТЕ — ДОБАВЛЕНО 22.08.2026 (P3 #33) ======
 // Кеш журнала на сайте (lib/useJournal.ts) живёт в браузере 60 сек. Если
